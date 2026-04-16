@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 28% 96%;
+    --foreground: 210 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 15%;
+
+    --primary: 24 85% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 145 40% 48%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 40 18% 92%;
+    --muted-foreground: 210 10% 45%;
+
+    --accent: 145 35% 92%;
+    --accent-foreground: 145 40% 28%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 14% 82%;
+    --input: 40 14% 82%;
+    --ring: 24 85% 52%;
+
+    --radius: 0.625rem;
+
+    --sidebar-background: 210 20% 15%;
+    --sidebar-foreground: 40 20% 90%;
+    --sidebar-primary: 24 85% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 18% 22%;
+    --sidebar-accent-foreground: 40 20% 90%;
+    --sidebar-border: 210 15% 25%;
+    --sidebar-ring: 24 85% 52%;
+    --sidebar-muted: 210 12% 35%;
+
+    /* Custom tokens */
+    --success: 145 40% 48%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 205 80% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Dashboard metric palette (inspired by modern admin boards) */
+    --dash-green: 160 84% 39%;
+    --dash-coral: 0 91% 71%;
+    --dash-blue: 217 91% 60%;
+    --dash-orange: 11 73% 59%;
+    --dash-purple: 239 84% 67%;
+    --dash-amber: 43 96% 56%;
+    --dash-charcoal: 220 15% 18%;
+    --dash-slate-bar: 220 13% 32%;
+
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body, #root {
+    min-height: 100%;
+    width: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased text-[15px] sm:text-base;
+  }
+}
+
+@layer components {
+  .stat-card {
+    @apply bg-card rounded-xl border p-6 shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  .page-header {
+    @apply text-3xl font-bold text-foreground tracking-tight;
+  }
+  .page-subtitle {
+    @apply mt-1 text-base text-muted-foreground;
+  }
+  .table-container {
+    @apply bg-card rounded-xl border shadow-md overflow-hidden;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-all duration-150;
+  }
+  .sidebar-link-active {
+    @apply bg-sidebar-accent text-sidebar-primary;
+  }
+  .sidebar-link-inactive {
+    @apply text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50;
+  }
+
+  .form-surface {
+    @apply rounded-xl border bg-card/95 shadow-md;
+  }
+
+  .dashboard-shell {
+    @apply -mx-2 -mt-2 rounded-2xl border border-border/60 bg-[hsl(220_14%_96%)] shadow-sm sm:-mx-4 lg:-mx-6;
+  }
+
+  .dashboard-hero {
+    @apply rounded-t-2xl px-6 py-5 text-white;
+    background: linear-gradient(180deg, hsl(var(--dash-charcoal)) 0%, hsl(220 15% 22%) 100%);
+  }
+
+  .dashboard-hero--compact {
+    @apply px-4 py-3 sm:px-5;
+  }
+
+  .dashboard-strip {
+    @apply flex items-center gap-2 border-b border-white/10 px-6 py-3 text-sm font-medium text-white/95;
+    background: hsl(var(--dash-slate-bar));
+  }
+
+  .dashboard-strip--compact {
+    @apply px-4 py-2 text-xs;
+  }
+
+  .dashboard-metric-card {
+    @apply overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md transition-shadow hover:shadow-lg;
+  }
+
+  .dashboard-metric-head {
+    @apply flex items-center gap-2.5 px-4 py-3 text-sm font-semibold;
+  }
+
+  .dashboard-metric-body {
+    @apply px-4 py-5;
+  }
+
+  .dashboard-chart-card {
+    @apply rounded-xl border border-slate-200/90 bg-white p-5 shadow-md;
+  }
+}
+
+@layer base {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    @apply bg-card;
+  }
+}
