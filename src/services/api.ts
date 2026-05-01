@@ -55,12 +55,37 @@ if (import.meta.env.DEV) {
 
 const api = axios.create({
   baseURL: resolvedApiBaseURL,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('bserp_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  // Axios + FormData: ne pas forcer Content-Type, sinon le navigateur n'ajoute pas le boundary
+  // et Laravel ne récupère pas correctement `file`.
+  const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
+  if (isFormData) {
+    const h = config.headers as AxiosHeaders | undefined;
+    if (h && typeof h.delete === 'function') {
+      h.delete('Content-Type');
+    } else if (config.headers && typeof config.headers === 'object') {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+    return config;
+  }
+
+  // Pour les payloads JSON, on applique un Content-Type explicite si absent.
+  const method = (config.method ?? 'get').toLowerCase();
+  const shouldSendBody = ['post', 'put', 'patch', 'delete'].includes(method);
+  if (shouldSendBody) {
+    const existing =
+      (config.headers as Record<string, unknown> | undefined)?.['Content-Type'] ??
+      (config.headers as Record<string, unknown> | undefined)?.['content-type'];
+    if (!existing) {
+      config.headers = config.headers ?? {};
+      (config.headers as Record<string, unknown>)['Content-Type'] = 'application/json';
+    }
+  }
   return config;
 });
 
@@ -169,25 +194,7 @@ export const documentsApi = {
     if (typeDocument) {
       formData.append('type_document', typeDocument);
     }
-    // Axios 1.x : les en-têtes sont des AxiosHeaders ; il faut retirer Content-Type pour que
-    // le navigateur envoie multipart/form-data avec le boundary (sinon Laravel ne reçoit pas `file` → 422).
-    return api.post('/documents', formData, {
-      headers: {
-        // Laisse le navigateur définir multipart/form-data + boundary (requis pour que Laravel reçoive `file`).
-        'Content-Type': undefined,
-      },
-      transformRequest: [
-        (data, headers) => {
-          const h = headers as AxiosHeaders | undefined;
-          if (h && typeof h.delete === 'function') {
-            h.delete('Content-Type');
-          } else if (headers && typeof headers === 'object') {
-            delete (headers as Record<string, unknown>)['Content-Type'];
-          }
-          return data;
-        },
-      ],
-    });
+    return api.post('/documents', formData);
   },
   delete: (id: string) => api.delete(`/documents/${id}`),
   download: (id: string) => api.get(`/documents/${id}/download`, { responseType: 'blob' }),
