@@ -1,5 +1,6 @@
 import { FileText, Download, Trash2, Search, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -29,6 +30,28 @@ interface PaginationMeta {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+function uploadErrorMessage(err: unknown): string {
+  if (!axios.isAxiosError(err)) return "L'upload a échoué.";
+
+  const status = err.response?.status;
+  const data = err.response?.data as
+    | { message?: string; errors?: Record<string, string[]>; request_id?: string }
+    | undefined;
+  const fromFields = data?.errors ? Object.values(data.errors).flat().join(' ') : '';
+  const requestId = data?.request_id ? ` (request_id: ${data.request_id})` : '';
+
+  if (!err.response) {
+    return "Echec réseau pendant l'upload. Vérifiez la connexion puis réessayez.";
+  }
+  if (status === 401) return 'Session expirée. Reconnectez-vous puis réessayez.';
+  if (status === 413) return 'Fichier trop volumineux.';
+  if (status === 422) return fromFields || data?.message || 'Données invalides pour l’upload.';
+  if (status && status >= 500) {
+    return (data?.message || 'Erreur serveur pendant l’upload.') + requestId;
+  }
+  return fromFields || data?.message || `Upload échoué (HTTP ${status ?? 'inconnu'}).`;
 }
 
 export default function Documents() {
@@ -89,7 +112,16 @@ export default function Documents() {
     if (!uploadForm.dossier_id || !selectedFile) return;
     setUploading(true);
     try {
-      await documentsApi.upload(uploadForm.dossier_id, selectedFile, uploadForm.type_document);
+      try {
+        await documentsApi.upload(uploadForm.dossier_id, selectedFile, uploadForm.type_document);
+      } catch (firstErr) {
+        // Retry once for transient network/proxy failures.
+        if (axios.isAxiosError(firstErr) && !firstErr.response) {
+          await documentsApi.upload(uploadForm.dossier_id, selectedFile, uploadForm.type_document);
+        } else {
+          throw firstErr;
+        }
+      }
       setDialogOpen(false);
       setSelectedFile(null);
       setUploadForm({ dossier_id: '', type_document: 'CNI ou Passeport' });
@@ -99,13 +131,11 @@ export default function Documents() {
       });
       await loadData();
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-      const data = ax.response?.data;
-      const fromFields = data?.errors ? Object.values(data.errors).flat().join(' ') : '';
-      setError(fromFields || data?.message || "L'upload a échoué.");
+      const message = uploadErrorMessage(err);
+      setError(message);
       toast({
         title: 'Erreur',
-        description: fromFields || data?.message || "L'upload a échoué.",
+        description: message,
         variant: 'destructive',
       });
     } finally {
