@@ -4,7 +4,6 @@ import {
   Search,
   Eye,
   FolderOpen,
-  FileText,
   Pencil,
   Trash2,
   ChevronLeft,
@@ -16,12 +15,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { clientsApi, dossiersApi, downloadDossiersExport } from '@/services/api';
+import { dossiersApi, downloadDossiersExport, clientsApi } from '@/services/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
-import { DOCUMENT_TYPES } from '@/constants/documentTypes';
 import { useAuth, type Role } from '@/contexts/AuthContext';
+import { useDossiers } from '@/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 type DossierStatut =
   | 'En cours'
@@ -146,6 +145,7 @@ export default function Dossiers() {
   const canCreateDossier = hasAccess(ROLES_CREATE_DOSSIER);
   const canEditDossier = hasAccess(ROLES_EDIT_DOSSIER);
   const canDeleteDossier = hasAccess(ROLES_DELETE_DOSSIER);
+  const queryClient = useQueryClient();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
@@ -169,14 +169,11 @@ export default function Dossiers() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
-  const [dossiers, setDossiers] = useState<DossierListItem[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [selectedDossier, setSelectedDossier] = useState<DossierDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [editForm, setEditForm] = useState({ type: '', statut: 'En cours' as DossierStatut, date_ouverture: '' });
   const [newDossier, setNewDossier] = useState({ client_id: '', type: '', statut: 'En cours' as DossierStatut });
-  const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -228,6 +225,12 @@ export default function Dossiers() {
     ],
   );
 
+  // Utilisation de React Query
+  const { data: dossiersData, isLoading: loading, isError: dossiersError } = useDossiers(listParams);
+
+  const dossiers = (dossiersData?.data ?? []) as DossierListItem[];
+  const meta = (dossiersData?.meta ?? null) as PaginationMeta | null;
+
   const exportFilters = useMemo(
     () => ({
       search: debouncedSearch || undefined,
@@ -257,37 +260,13 @@ export default function Dossiers() {
       });
       setClients((clientsRes.data?.data ?? []) as ClientOption[]);
     } catch {
-      /* menu création */
+      /* ignore */
     }
   }, [clientSearch]);
-
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await dossiersApi.getAll(listParams);
-      const payload = res.data as {
-        data?: DossierListItem[];
-        meta?: PaginationMeta;
-      };
-      setDossiers((payload.data ?? []) as DossierListItem[]);
-      setMeta(payload.meta ?? null);
-    } catch {
-      setError('Impossible de charger les dossiers.');
-      setDossiers([]);
-      setMeta(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [listParams]);
 
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
-
-  useEffect(() => {
-    void loadList();
-  }, [loadList]);
 
   const openDetail = async (row: DossierListItem) => {
     setDetailLoading(true);
@@ -322,7 +301,8 @@ export default function Dossiers() {
         statut: newDossier.statut,
       });
       setNewDossier({ client_id: '', type: '', statut: 'En cours' });
-      await loadList();
+      void queryClient.invalidateQueries({ queryKey: ['dossiers'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
     } catch {
       setError("Impossible de créer le dossier.");
     } finally {
@@ -341,7 +321,8 @@ export default function Dossiers() {
         statut: editForm.statut,
         date_ouverture: editForm.date_ouverture || null,
       });
-      await loadList();
+      void queryClient.invalidateQueries({ queryKey: ['dossiers'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
       const res = await dossiersApi.getById(selectedDossier.id);
       const d = res.data?.data as DossierDetail | undefined;
       if (d) setSelectedDossier(d);
@@ -366,7 +347,8 @@ export default function Dossiers() {
     try {
       await dossiersApi.delete(selectedDossier.id);
       setSelectedDossier(null);
-      await loadList();
+      void queryClient.invalidateQueries({ queryKey: ['dossiers'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
     } catch {
       setError('Impossible de supprimer ce dossier.');
     } finally {
@@ -481,7 +463,7 @@ export default function Dossiers() {
         ) : undefined
       }
     >
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {dossiersError && <p className="text-sm text-destructive">Impossible de charger les dossiers.</p>}
 
       <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-end">
         <div className="relative min-w-[min(100%,20rem)] flex-1">
@@ -798,41 +780,23 @@ export default function Dossiers() {
                   </div>
 
                   {canEditDossier && (
-                    <form
-                      onSubmit={handleSaveEdit}
-                      className="space-y-4 rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/25"
-                    >
-                      <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600/15 text-emerald-700 dark:text-emerald-400">
-                          <Pencil size={16} aria-hidden />
-                        </span>
-                        Modifier le dossier
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                    <form onSubmit={handleSaveEdit} className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-muted-foreground">Type</label>
+                          <label className="text-xs font-medium text-muted-foreground">Type de dossier</label>
                           <Input
                             value={editForm.type}
                             onChange={(e) => setEditForm((p) => ({ ...p, type: e.target.value }))}
-                            placeholder="Ex. Bulletins, Visa…"
-                            className="bg-background"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-muted-foreground">Date d’ouverture</label>
-                          <Input
-                            type="date"
-                            value={editForm.date_ouverture}
-                            onChange={(e) => setEditForm((p) => ({ ...p, date_ouverture: e.target.value }))}
-                            className="bg-background"
-                          />
-                        </div>
-                        <div className="space-y-1.5 sm:col-span-2">
                           <label className="text-xs font-medium text-muted-foreground">Statut</label>
                           <select
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             value={editForm.statut}
-                            onChange={(e) => setEditForm((p) => ({ ...p, statut: e.target.value as DossierStatut }))}
+                            onChange={(e) =>
+                              setEditForm((p) => ({ ...p, statut: e.target.value as DossierStatut }))
+                            }
                           >
                             {STATUT_OPTIONS.map((s) => (
                               <option key={s} value={s}>
@@ -842,91 +806,66 @@ export default function Dossiers() {
                           </select>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <Button type="submit" size="sm" disabled={savingEdit} className="bg-emerald-600 hover:bg-emerald-700">
-                          {savingEdit ? 'Enregistrement…' : 'Enregistrer'}
-                        </Button>
-                        {canDeleteDossier && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            disabled={deleting}
-                            onClick={() => void handleDeleteDossier()}
-                          >
-                            <Trash2 size={14} className="mr-1.5" aria-hidden />
-                            {deleting ? 'Suppression…' : 'Supprimer le dossier'}
-                          </Button>
-                        )}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Date ouverture</label>
+                        <Input
+                          type="date"
+                          value={editForm.date_ouverture}
+                          onChange={(e) => setEditForm((p) => ({ ...p, date_ouverture: e.target.value }))}
+                        />
                       </div>
+                      <Button type="submit" size="sm" className="w-full" disabled={savingEdit}>
+                        {savingEdit ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                      </Button>
                     </form>
                   )}
 
-                  <Separator className="bg-border/80" />
-
                   <div>
-                    <div className="mb-3">
-                      <h3 className="text-base font-semibold text-foreground">
-                        Documents ({selectedDossier.documents?.length ?? 0})
-                      </h3>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Utilisez la zone de défilement de la fenêtre pour parcourir tout le contenu.
-                      </p>
-                    </div>
-
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Checklist des pièces
-                    </p>
-                    <div className="mb-4 rounded-lg border border-border/60 bg-muted/15 p-2">
-                      <div className="flex flex-wrap gap-2">
-                        {DOCUMENT_TYPES.map((type) => {
-                          const has = selectedDossier.documents?.some((doc) => doc.type === type);
-                          return (
-                            <span
-                              key={type}
-                              className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
-                                has
-                                  ? 'border-emerald-300/80 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100'
-                                  : 'border-border bg-card text-muted-foreground'
-                              }`}
-                            >
-                              <span className="shrink-0">{has ? '✓' : '○'}</span>
-                              <span className="min-w-0 truncate">{type}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-
+                    <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Documents ({selectedDossier.documents?.length ?? 0})
+                    </h4>
                     {selectedDossier.documents && selectedDossier.documents.length > 0 ? (
-                      <div className="space-y-2 rounded-xl border border-border/70 bg-card/50 p-2">
-                        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Fichiers joints</p>
-                        <ul className="space-y-1.5">
-                          {selectedDossier.documents.map((doc) => (
-                            <li
-                              key={doc.id}
-                              className="flex min-w-0 items-start gap-3 rounded-lg border border-transparent bg-background/80 px-3 py-2.5 transition-colors hover:border-border hover:bg-muted/40"
-                            >
-                              <FileText size={18} className="mt-0.5 shrink-0 text-emerald-600" aria-hidden />
-                              <div className="min-w-0 flex-1">
-                                <p className="break-words text-sm font-medium leading-snug text-foreground">{doc.nom}</p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                  {doc.type} · {doc.date}
-                                </p>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="space-y-2">
+                        {selectedDossier.documents.map((doc) => (
+                          <li
+                            key={doc.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/10 p-3 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{doc.nom}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {doc.type} · {doc.date}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-                        <p className="text-sm font-medium text-foreground">Aucun document dans ce dossier</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Ajoutez des documents depuis la page Documents pour compléter ce dossier.
-                        </p>
-                      </div>
+                      <p className="text-center text-sm text-muted-foreground italic py-4">Aucun document attaché.</p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 border-t border-border/80 bg-muted/30 px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  {canDeleteDossier ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={deleting}
+                      onClick={handleDeleteDossier}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer le dossier
+                    </Button>
+                  ) : (
+                    <div />
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setSelectedDossier(null)}>
+                    Fermer
+                  </Button>
                 </div>
               </div>
             </>

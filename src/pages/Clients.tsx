@@ -1,14 +1,16 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, GraduationCap, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
-import { clientsApi, destinationsApi } from '@/services/api';
+import { clientsApi } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { DASH_GREEN } from '@/lib/dashboardTheme';
 import { useToast } from '@/hooks/use-toast';
+import { useClients, useDestinations } from '@/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Client {
   id: string;
@@ -38,7 +40,6 @@ interface PaginationMeta {
   total: number;
 }
 
-/** Ordre d’affichage des zones (Europe en premier pour la France, etc.) */
 const REGION_ORDER = ['Europe', 'Asie', 'Amérique', 'Afrique'] as const;
 
 const initialForm = {
@@ -55,51 +56,31 @@ const initialForm = {
 
 export default function Clients() {
   const [search, setSearch] = useState('');
-  const [clients, setClients] = useState<Client[]>([]);
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [filterDestination, setFilterDestination] = useState('');
   const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
   const [form, setForm] = useState(initialForm);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [clientsRes, destinationsRes] = await Promise.all([
-        clientsApi.getAll({
-          per_page: '20',
-          page: String(page),
-          ...(search.trim() ? { search: search.trim() } : {}),
-          ...(filterDestination ? { destination_id: filterDestination } : {}),
-        }),
-        destinationsApi.getAll(),
-      ]);
-      setClients((clientsRes.data?.data ?? []) as Client[]);
-      setMeta((clientsRes.data?.meta ?? null) as PaginationMeta | null);
-      setDestinations((destinationsRes.data ?? []) as Destination[]);
-    } catch {
-      setError('Impossible de charger les clients.');
-      toast({
-        title: 'Erreur',
-        description: 'Le chargement des clients a échoué.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Utilisation de React Query pour les clients
+  const { data: clientsData, isLoading: loadingClients, isError: clientsError } = useClients({
+    per_page: '20',
+    page: String(page),
+    ...(search.trim() ? { search: search.trim() } : {}),
+    ...(filterDestination ? { destination_id: filterDestination } : {}),
+  });
 
-  useEffect(() => {
-    void loadData();
-  }, [page, search, filterDestination]);
+  // Utilisation de React Query pour les destinations
+  const { data: destinationsData, isLoading: loadingDestinations } = useDestinations();
+
+  const clients = (clientsData?.data ?? []) as Client[];
+  const meta = (clientsData?.meta ?? null) as PaginationMeta | null;
+  const destinations = (destinationsData ?? []) as Destination[];
+  const loading = loadingClients || loadingDestinations;
 
   const openCreate = () => {
     setEditingClientId(null);
@@ -142,9 +123,10 @@ export default function Clients() {
         title: editingClientId ? 'Client mis à jour' : 'Client créé',
         description: 'Les informations ont été enregistrées.',
       });
-      await loadData();
+      // Invalidation du cache pour rafraîchir la liste
+      void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
     } catch {
-      setError("Échec de l'enregistrement du client.");
       toast({
         title: 'Erreur',
         description: "L'enregistrement du client a échoué.",
@@ -159,36 +141,14 @@ export default function Clients() {
     if (!window.confirm('Supprimer ce client ?')) return;
     try {
       await clientsApi.delete(id);
-      try {
-        await clientsApi.getById(id);
-        throw new Error('DELETE_NOT_CONFIRMED');
-      } catch (verifyErr: unknown) {
-        const ax = verifyErr as { response?: { status?: number }; message?: string };
-        const status = ax.response?.status;
-        if (status !== 404 && ax.message === 'DELETE_NOT_CONFIRMED') {
-          throw verifyErr;
-        }
-        if (status !== 404 && ax.message !== 'DELETE_NOT_CONFIRMED') {
-          throw verifyErr;
-        }
-      }
-      setClients((prev) => prev.filter((c) => c.id !== id));
-      setMeta((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          total: Math.max(0, prev.total - 1),
-        };
-      });
       toast({
         title: 'Client supprimé',
         description: 'Le client a été supprimé avec succès.',
       });
-      void loadData();
-    } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string } } };
-      const msg = ax.response?.data?.message || 'Suppression impossible.';
-      setError(msg);
+      void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Suppression impossible.';
       toast({
         title: 'Erreur',
         description: msg,
@@ -206,7 +166,6 @@ export default function Clients() {
     [destinations]
   );
 
-  /** Destinations API regroupées par zone pour &lt;optgroup&gt; */
   const destinationsByRegion = useMemo(() => {
     const groups = new Map<string, Destination[]>();
     for (const d of destinations) {
@@ -325,7 +284,7 @@ export default function Clients() {
         </Dialog>
       }
     >
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {clientsError && <p className="text-sm text-destructive">Impossible de charger les clients.</p>}
 
       {/* Search + Filter */}
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
@@ -349,7 +308,7 @@ export default function Clients() {
         </select>
       </div>
 
-      {/* Table — max-h + scroll + en-tête collant (comme Documents) */}
+      {/* Table */}
       <div className="table-container overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md">
         <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-800">Liste des clients</h2>

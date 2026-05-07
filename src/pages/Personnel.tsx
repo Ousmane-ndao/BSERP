@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Mail, Phone, Plus, Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
+import { Mail, Phone, Plus, Briefcase, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { ROLE_LABELS, type Role } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { employeesApi } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { formatPersonnelName } from '@/lib/personnelDisplay';
 import { LIST_PAGE_SIZE } from '@/constants/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEmployees } from '@/hooks/useQueries';
 
 interface Employe {
   id: string;
@@ -147,9 +149,9 @@ function EmployeCard({ e }: { e: Employe }) {
 }
 
 export default function Personnel() {
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [employes, setEmployes] = useState<Employe[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -160,6 +162,9 @@ export default function Personnel() {
     password: '',
     password_confirmation: '',
   });
+
+  const { data: empRes, isLoading: loading } = useEmployees({ per_page: '200' });
+  const employes = (empRes?.data ?? []) as Employe[];
 
   const sortedEmployes = useMemo(() => {
     return [...employes].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
@@ -177,20 +182,6 @@ export default function Personnel() {
     setPage((p) => Math.min(p, tp));
   }, [sortedEmployes.length]);
 
-  const loadEmployees = async () => {
-    setError('');
-    try {
-      const response = await employeesApi.getAll({ per_page: '200' });
-      setEmployes((response.data?.data ?? []) as Employe[]);
-    } catch {
-      setError('Impossible de charger les employés.');
-    }
-  };
-
-  useEffect(() => {
-    void loadEmployees();
-  }, []);
-
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -205,7 +196,7 @@ export default function Personnel() {
         password: '',
         password_confirmation: '',
       });
-      await loadEmployees();
+      void queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch {
       setError("Impossible d'ajouter l'employé.");
     } finally {
@@ -303,17 +294,25 @@ export default function Personnel() {
     >
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="max-h-[min(70vh,640px)] overflow-y-auto pr-1">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {paginatedEmployes.map((emp) => (
-            <EmployeCard key={emp.id} e={emp} />
-          ))}
-          {employes.length === 0 && <p className="text-muted-foreground">Aucun employé.</p>}
+      {loading && (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
         </div>
-      </div>
+      )}
+
+      {!loading && (
+        <div className="max-h-[min(70vh,640px)] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {paginatedEmployes.map((emp) => (
+              <EmployeCard key={emp.id} e={emp} />
+            ))}
+            {employes.length === 0 && <p className="text-muted-foreground">Aucun employé.</p>}
+          </div>
+        </div>
+      )}
 
       {sortedEmployes.length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-4">
           <p className="text-sm text-muted-foreground">
             Page {Math.min(page, totalPages)} sur {totalPages} — {sortedEmployes.length} employé
             {sortedEmployes.length > 1 ? 's' : ''}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Users,
   CheckCircle,
@@ -9,6 +9,7 @@ import {
   Receipt,
   FileWarning,
   CalendarDays,
+  Loader2,
 } from 'lucide-react';
 import {
   BarChart,
@@ -23,7 +24,6 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { dashboardApi } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardMetricCard, type DashboardMetricSpec } from '@/components/dashboard/DashboardMetricCard';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
@@ -37,8 +37,8 @@ import {
   DASH_METRIC_STYLES,
 } from '@/lib/dashboardTheme';
 import { APP_CURRENCY_LABEL, formatMoneyWithLabel } from '@/lib/currency';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDashboardStats } from '@/hooks/useQueries';
 
 const STATUS_CHART_COLORS: Record<string, string> = {
   Terminé: DASH_GREEN,
@@ -83,32 +83,12 @@ const ROLES_PAYMENTS_API = ['directrice', 'responsable_admin', 'comptable', 'inf
 export default function Dashboard() {
   const { hasAccess } = useAuth();
   const canLoadPayments = hasAccess([...ROLES_PAYMENTS_API]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const dashRes = await dashboardApi.getStats();
+  const { data: dashRes, isLoading: loading, error: queryError } = useDashboardStats();
 
-        setStats((dashRes.data ?? {}) as DashboardStats);
-      } catch {
-        setError('Impossible de charger les données du dashboard.');
-        toast({
-          title: 'Erreur',
-          description: 'Impossible de charger les données du dashboard.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    void loadData();
-  }, []);
+  const stats = (dashRes as DashboardStats) || null;
+  const error = queryError ? 'Impossible de charger les données.' : '';
 
   const metrics = useMemo(() => {
     if (!stats) return [];
@@ -228,7 +208,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {metrics.map((m) => (
-          <DashboardMetricCard key={m.label} {...m} />
+          <DashboardMetricCard key={m.label} {...m} loading={loading} />
         ))}
       </div>
 

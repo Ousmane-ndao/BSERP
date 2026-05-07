@@ -1,13 +1,14 @@
-import { FileText, Download, Trash2, Search, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Download, Trash2, Search, Upload, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { FormEvent, useMemo, useRef, useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { documentsApi, dossiersApi } from '@/services/api';
 import { DOCUMENT_TYPES } from '@/constants/documentTypes';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { useDocuments } from '@/hooks/useQueries';
 
 interface DocumentItem {
   id: string;
@@ -32,16 +33,13 @@ interface PaginationMeta {
 }
 
 export default function Documents() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [dossiers, setDossiers] = useState<DossierOption[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const { toast } = useToast();
   const [uploadForm, setUploadForm] = useState({
     dossier_id: '',
@@ -49,36 +47,34 @@ export default function Documents() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [docsRes, dossiersRes] = await Promise.all([
-        documentsApi.getAll({
-          per_page: '20',
-          page: String(page),
-          ...(search.trim() ? { search: search.trim() } : {}),
-        }),
-        dossiersApi.getOptions(),
-      ]);
-      setDocuments((docsRes.data?.data ?? []) as DocumentItem[]);
-      setMeta((docsRes.data?.meta ?? null) as PaginationMeta | null);
-      setDossiers((dossiersRes.data?.data ?? []) as DossierOption[]);
-    } catch {
-      setError('Impossible de charger les documents.');
-      toast({
-        title: 'Erreur',
-        description: 'Le chargement des documents a échoué.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // For dossier options, we keep it simple or we could use another query
+  const [dossiers, setDossiers] = useState<DossierOption[]>([]);
+  const [dossiersLoaded, setDossiersLoaded] = useState(false);
+
+  const queryParams = useMemo(() => ({
+    per_page: '20',
+    page: String(page),
+    ...(search.trim() ? { search: search.trim() } : {}),
+  }), [page, search]);
+
+  const { data: docsRes, isLoading: loading } = useDocuments(queryParams);
+
+  const documents = (docsRes?.data ?? []) as DocumentItem[];
+  const meta = (docsRes?.meta ?? null) as PaginationMeta | null;
 
   useEffect(() => {
-    void loadData();
-  }, [page, search]);
+    if (dialogOpen && !dossiersLoaded) {
+      void (async () => {
+        try {
+          const res = await dossiersApi.getOptions();
+          setDossiers((res.data?.data ?? []) as DossierOption[]);
+          setDossiersLoaded(true);
+        } catch {
+          setError('Impossible de charger les dossiers.');
+        }
+      })();
+    }
+  }, [dialogOpen, dossiersLoaded]);
 
   useEffect(() => {
     setPage(1);
@@ -97,17 +93,14 @@ export default function Documents() {
         title: 'Document envoyé',
         description: 'Le document a été téléversé avec succès.',
       });
-      await loadData();
+      void queryClient.invalidateQueries({ queryKey: ['documents'] });
+      // Also invalidate dashboard if needed
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
       const data = ax.response?.data;
       const fromFields = data?.errors ? Object.values(data.errors).flat().join(' ') : '';
       setError(fromFields || data?.message || "L'upload a échoué.");
-      toast({
-        title: 'Erreur',
-        description: fromFields || data?.message || "L'upload a échoué.",
-        variant: 'destructive',
-      });
     } finally {
       setUploading(false);
     }
@@ -117,41 +110,16 @@ export default function Documents() {
     if (!window.confirm('Supprimer ce document ?')) return;
     try {
       await documentsApi.delete(id);
-      try {
-        await documentsApi.getById(id);
-        throw new Error('DELETE_NOT_CONFIRMED');
-      } catch (verifyErr: unknown) {
-        const ax = verifyErr as { response?: { status?: number }; message?: string };
-        const status = ax.response?.status;
-        if (status !== 404 && ax.message === 'DELETE_NOT_CONFIRMED') {
-          throw verifyErr;
-        }
-        if (status !== 404 && ax.message !== 'DELETE_NOT_CONFIRMED') {
-          throw verifyErr;
-        }
-      }
-      setDocuments((prev) => prev.filter((d) => d.id !== id));
-      setMeta((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          total: Math.max(0, prev.total - 1),
-        };
-      });
       toast({
         title: 'Document supprimé',
         description: 'Le document a été supprimé.',
       });
-      void loadData();
+      void queryClient.invalidateQueries({ queryKey: ['documents'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string } } };
       const msg = ax.response?.data?.message || 'Suppression impossible.';
       setError(msg);
-      toast({
-        title: 'Erreur',
-        description: msg,
-        variant: 'destructive',
-      });
     }
   };
 
@@ -167,11 +135,6 @@ export default function Documents() {
       URL.revokeObjectURL(href);
     } catch {
       setError('Téléchargement impossible.');
-      toast({
-        title: 'Erreur',
-        description: 'Le téléchargement a échoué.',
-        variant: 'destructive',
-      });
     }
   };
 

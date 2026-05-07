@@ -6,9 +6,19 @@ export interface DashboardMetricSpec {
   icon: LucideIcon;
   headerBg: string;
   bodyBg: string;
+  loading?: boolean;
 }
 
-export function DashboardMetricCard({ label, value, icon: Icon, headerBg, bodyBg }: DashboardMetricSpec) {
+export function DashboardMetricCard({ label, value, icon: Icon, headerBg, bodyBg, loading }: DashboardMetricSpec) {
+  if (loading) {
+    return (
+      <div className="dashboard-metric-card animate-pulse">
+        <div className="dashboard-metric-head bg-slate-200 h-10" />
+        <div className="dashboard-metric-body bg-slate-50 h-16" />
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-metric-card">
       <div

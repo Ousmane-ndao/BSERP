@@ -17,7 +17,16 @@ import Personnel from "@/pages/Personnel";
 import Parametres from "@/pages/Parametres";
 import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // Les données sont considérées comme "fraîches" pendant 2 minutes
+      gcTime: 10 * 60 * 1000,   // Les données restent en cache pendant 10 minutes
+      retry: 1,                 // Réessayer une fois en cas d'échec
+      refetchOnWindowFocus: false, // Ne pas recharger quand on revient sur l'onglet
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
