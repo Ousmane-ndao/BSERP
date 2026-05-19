@@ -22,6 +22,11 @@ function resolveApiBaseURL(): string {
   }
 
   if (!raw) {
+    if (!import.meta.env.DEV) {
+      console.error(
+        '[BSERP] VITE_API_URL is not configured in production. Set VITE_API_URL=https://<your-backend>.onrender.com/api on Vercel.',
+      );
+    }
     return fallbackProd;
   }
 
@@ -41,6 +46,7 @@ function resolveApiBaseURL(): string {
     }
   } catch {
     // Si l'URL est invalide, on repasse en route relative pour garder l'app fonctionnelle.
+    console.error('[BSERP] VITE_API_URL is invalid:', raw);
     return '/api';
   }
 
@@ -56,6 +62,9 @@ if (import.meta.env.DEV) {
 const api = axios.create({
   baseURL: resolvedApiBaseURL,
   headers: { 'Content-Type': 'application/json' },
+  // Timeout for API requests (ms) — protège contre hangs si le backend cold-start
+  // Augmenté pour tolérer les cold-starts Render (30s)
+  timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
@@ -67,11 +76,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const url = error.config?.url;
+    if (status === 401) {
       localStorage.removeItem('bserp_token');
       localStorage.removeItem('bserp_user');
       window.location.href = LOGIN_ROUTE;
+      return Promise.reject(error);
     }
+
+    // Log useful info for diagnostics (network, status, url)
+    try {
+      console.error('[BSERP] API error', { url, status, message: error.message, response: error.response?.data });
+    } catch {
+      // ignore
+    }
+
     return Promise.reject(error);
   }
 );
@@ -86,8 +106,39 @@ export const authApi = {
 };
 
 // Dashboard
+// Small helper: retry with exponential backoff for recoverable errors
+async function retryRequest<T>(fn: () => Promise<T>, retries = 3, baseDelay = 1000): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const e = err as any;
+      const status = e?.response?.status;
+      const isNetworkError = !e?.response;
+      const isTimeout = e?.code === 'ECONNABORTED' || (e?.message && e.message.includes('timeout'));
+      const serverError = typeof status === 'number' && status >= 500 && status < 600;
+
+      // Only retry on network errors, timeouts or 5xx server errors
+      if (i === retries || !(isNetworkError || isTimeout || serverError)) {
+        throw err;
+      }
+
+      const delay = baseDelay * Math.pow(2, i);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((res) => setTimeout(res, delay));
+      } catch {
+        // ignore
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export const dashboardApi = {
-  getStats: () => api.get('/dashboard'),
+  getStats: () => retryRequest(() => api.get('/dashboard'), 3, 1200),
 };
 
 // Clients

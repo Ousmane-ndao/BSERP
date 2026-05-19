@@ -22,6 +22,11 @@ export const useDashboardStats = () => {
       const res = await dashboardApi.getStats();
       return res.data;
     },
+    // Réessayer légèrement en cas d'échec réseau/500 (2 tentatives), et ne pas refetch on focus
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    retryOnMount: true,
+    refetchOnReconnect: true,
   });
 };
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
   Users,
   CheckCircle,
@@ -88,7 +88,32 @@ export default function Dashboard() {
   const { data: dashRes, isLoading: loading, error: queryError } = useDashboardStats();
 
   const stats = (dashRes as DashboardStats) || null;
-  const error = queryError ? 'Impossible de charger les données.' : '';
+  const apiError = queryError as any;
+  const errorStatus = apiError?.response?.status;
+  const errorDetail =
+    apiError?.response?.data?.message ?? apiError?.response?.data?.error ?? apiError?.message ??
+    'Erreur lors du chargement des statistiques du dashboard.';
+  const error = queryError
+    ? `Impossible de charger les données du dashboard${errorStatus ? ` (erreur ${errorStatus})` : ''}${errorDetail ? ` : ${errorDetail}` : ''}`
+    : '';
+
+  useEffect(() => {
+    if (!queryError) return;
+    const status = apiError?.response?.status;
+    const detail = apiError?.response?.data?.message ?? apiError?.response?.data?.error ?? apiError?.message ??
+      'Erreur lors du chargement des statistiques du dashboard.';
+
+    console.error('Dashboard load error', { status, detail, error: queryError });
+    try {
+      toast({
+        title: 'Erreur de chargement',
+        description: status ? `(${status}) ${detail}` : detail,
+        variant: 'destructive',
+      });
+    } catch {
+      // ignore toast errors
+    }
+  }, [queryError, toast]);
 
   const metrics = useMemo(() => {
     if (!stats) return [];
