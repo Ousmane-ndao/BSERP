@@ -4,7 +4,7 @@ import { LOGIN_ROUTE } from '@/lib/routes';
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
 function resolveApiBaseURL(): string {
   const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  const fallbackProd = '/api';
+  const fallbackProd = 'https://bserp-backend-latest.onrender.com/api';
 
   // Erreur fréquente : VITE_API_URL=http://localhost:8080 → POST :8080/login (404). En dev on passe par le proxy.
   if (import.meta.env.DEV) {
