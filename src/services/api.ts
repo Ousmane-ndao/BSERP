@@ -325,16 +325,46 @@ async function downloadBlobResponse(
   triggerBrowserDownload(blob, filename);
 }
 
+/** Message lisible pour les échecs API (blob JSON, 404, CORS, etc.). */
+export async function extractApiErrorMessage(err: unknown, fallback: string): Promise<string> {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data;
+    if (data instanceof Blob) {
+      try {
+        await assertBlobIsNotJsonError(data);
+      } catch (e) {
+        if (e instanceof Error) {
+          return e.message;
+        }
+      }
+    }
+    if (data && typeof data === 'object' && data !== null && 'message' in data) {
+      return String((data as { message?: string }).message);
+    }
+    if (err.response?.status === 404) {
+      return 'Fichier introuvable sur le serveur. Ré-uploadez le document.';
+    }
+    if (err.response?.status === 401) {
+      return 'Session expirée. Reconnectez-vous.';
+    }
+    if (!err.response) {
+      return 'Connexion au serveur impossible (réseau ou CORS). Actualisez la page (Ctrl+F5).';
+    }
+    return err.message || fallback;
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return fallback;
+}
+
 /** Télécharge un document (gère les erreurs API en JSON). */
 export async function downloadDocumentFile(id: string, fallbackFilename: string): Promise<void> {
   try {
     const res = await documentsApi.download(id);
     await downloadBlobResponse(res, fallbackFilename);
   } catch (err) {
-    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
-      await assertBlobIsNotJsonError(err.response.data);
-    }
-    throw err;
+    throw new Error(await extractApiErrorMessage(err, 'Téléchargement impossible.'));
   }
 }
 

@@ -135,9 +135,9 @@ export default function Documents() {
   };
 
   const handleDownload = async (id: string, name: string) => {
+    setError('');
     try {
       await downloadDocumentFile(id, name);
-      setError('');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Téléchargement impossible.';
       setError(msg);
