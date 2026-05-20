@@ -107,6 +107,11 @@ export const useDocuments = (params?: Record<string, string>) => {
       const res = await documentsApi.getAll(params);
       return res.data;
     },
+    // Render/Postgres may briefly fail on cold starts; retry transient server/network failures.
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    retryOnMount: true,
+    refetchOnReconnect: true,
   });
 };
 

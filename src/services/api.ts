@@ -4,53 +4,45 @@ import { LOGIN_ROUTE } from '@/lib/routes';
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
 function resolveApiBaseURL(): string {
   const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  const fallbackProd = 'https://bserp-backend-latest.onrender.com/api';
+  /** Même origine : en prod sur Vercel, `vercel.json` peut réécrire `/api/*` vers le backend Render. */
+  const fallbackSameOrigin = '/api';
 
-  // Erreur fréquente : VITE_API_URL=http://localhost:8080 → POST :8080/login (404). En dev on passe par le proxy.
+  // En dev, toujours le proxy Vite (/api) pour éviter le CORS navigateur.
   if (import.meta.env.DEV) {
-    if (!raw) {
-      return '/api';
-    }
-    try {
-      const u = new URL(raw);
-      if (u.port === '8080' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) {
-        return '/api';
-      }
-    } catch {
-      /* ignore */
-    }
+    return '/api';
   }
 
   if (!raw) {
-    if (!import.meta.env.DEV) {
-      console.error(
-        '[BSERP] VITE_API_URL is not configured in production. Set VITE_API_URL=https://<your-backend>.onrender.com/api on Vercel.',
-      );
-    }
-    return fallbackProd;
+    console.warn(
+      '[BSERP] VITE_API_URL absent au build : requêtes vers /api (réécriture Vercel → backend si vercel.json est déployé). Définissez VITE_API_URL=https://…/api pour un autre hébergeur.',
+    );
+    return fallbackSameOrigin;
   }
 
   const noTrail = raw.replace(/\/+$/, '');
   const normalized = noTrail.endsWith('/api') ? noTrail : `${noTrail}/api`;
 
   try {
-    const apiUrl = new URL(normalized, window.location.origin);
-    const isLoopback = ['localhost', '127.0.0.1'].includes(apiUrl.hostname);
-    const currentHost = window.location.hostname;
-    const currentIsLoopback = ['localhost', '127.0.0.1'].includes(currentHost);
-    const mixedContent = window.location.protocol === 'https:' && apiUrl.protocol === 'http:';
+    const apiUrl = new URL(normalized);
+    const mixedContent =
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      apiUrl.protocol === 'http:';
 
-    // En prod distante (ou HTTPS), on force le même host pour éviter blocages réseau/CORS/mixed-content.
-    if (mixedContent || (isLoopback && !currentIsLoopback)) {
-      return '/api';
+    if (mixedContent) {
+      console.error(
+        '[BSERP] VITE_API_URL est en http sur un site https (mixed content). Utilisez une URL https pour l’API.',
+      );
     }
-  } catch {
-    // Si l'URL est invalide, on repasse en route relative pour garder l'app fonctionnelle.
-    console.error('[BSERP] VITE_API_URL is invalid:', raw);
-    return '/api';
-  }
 
-  return normalized;
+    // Ne pas remplacer par /api ici : sur Vercel, /api sans rewrite ne pointe pas vers Laravel et casse
+    // clients/documents. Si l’API est en localhost dans l’env alors que le site est en prod, l’URL explicite
+    // évite un fallback silencieux vers le mauvais hôte.
+    return normalized;
+  } catch {
+    console.error('[BSERP] VITE_API_URL invalide:', raw);
+    return fallbackSameOrigin;
+  }
 }
 
 const resolvedApiBaseURL = resolveApiBaseURL();
@@ -70,6 +62,15 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('bserp_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // For multipart uploads, let the browser set Content-Type with boundary.
+  if (config.data instanceof FormData) {
+    const h = config.headers as AxiosHeaders | undefined;
+    if (h && typeof h.delete === 'function') {
+      h.delete('Content-Type');
+    } else if (config.headers && typeof config.headers === 'object') {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+  }
   return config;
 });
 
@@ -114,7 +115,7 @@ async function retryRequest<T>(fn: () => Promise<T>, retries = 3, baseDelay = 10
       return await fn();
     } catch (err) {
       lastErr = err;
-      const e = err as any;
+      const e = axios.isAxiosError(err) ? err : undefined;
       const status = e?.response?.status;
       const isNetworkError = !e?.response;
       const isTimeout = e?.code === 'ECONNABORTED' || (e?.message && e.message.includes('timeout'));
@@ -127,7 +128,6 @@ async function retryRequest<T>(fn: () => Promise<T>, retries = 3, baseDelay = 10
 
       const delay = baseDelay * Math.pow(2, i);
       try {
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => setTimeout(res, delay));
       } catch {
         // ignore
@@ -220,25 +220,7 @@ export const documentsApi = {
     if (typeDocument) {
       formData.append('type_document', typeDocument);
     }
-    // Axios 1.x : les en-têtes sont des AxiosHeaders ; il faut retirer Content-Type pour que
-    // le navigateur envoie multipart/form-data avec le boundary (sinon Laravel ne reçoit pas `file` → 422).
-    return api.post('/documents', formData, {
-      headers: {
-        // Laisse le navigateur définir multipart/form-data + boundary (requis pour que Laravel reçoive `file`).
-        'Content-Type': undefined,
-      },
-      transformRequest: [
-        (data, headers) => {
-          const h = headers as AxiosHeaders | undefined;
-          if (h && typeof h.delete === 'function') {
-            h.delete('Content-Type');
-          } else if (headers && typeof headers === 'object') {
-            delete (headers as Record<string, unknown>)['Content-Type'];
-          }
-          return data;
-        },
-      ],
-    });
+    return api.post('/documents', formData);
   },
   delete: (id: string) => api.delete(`/documents/${id}`),
   download: (id: string) => api.get(`/documents/${id}/download`, { responseType: 'blob' }),

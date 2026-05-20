@@ -9,6 +9,7 @@ import { DOCUMENT_TYPES } from '@/constants/documentTypes';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDocuments } from '@/hooks/useQueries';
+import axios from 'axios';
 
 interface DocumentItem {
   id: string;
@@ -57,7 +58,7 @@ export default function Documents() {
     ...(search.trim() ? { search: search.trim() } : {}),
   }), [page, search]);
 
-  const { data: docsRes, isLoading: loading } = useDocuments(queryParams);
+  const { data: docsRes, isLoading: loading, error: docsError } = useDocuments(queryParams);
 
   const documents = (docsRes?.data ?? []) as DocumentItem[];
   const meta = (docsRes?.meta ?? null) as PaginationMeta | null;
@@ -79,6 +80,16 @@ export default function Documents() {
   useEffect(() => {
     setPage(1);
   }, [search]);
+
+  useEffect(() => {
+    if (!docsError) return;
+    if (axios.isAxiosError(docsError)) {
+      const apiMessage = docsError.response?.data?.message;
+      setError(typeof apiMessage === 'string' ? apiMessage : 'Service documents temporairement indisponible.');
+      return;
+    }
+    setError('Service documents temporairement indisponible.');
+  }, [docsError]);
 
   const handleUpload = async (e: FormEvent) => {
     e.preventDefault();
