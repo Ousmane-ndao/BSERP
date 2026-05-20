@@ -1,5 +1,8 @@
 # BSERP (frontend)
 
+**Projet Vercel : `bserp`** → https://bserp.vercel.app  
+**Backend : `bserp-backend`** → https://bserp-backend-latest.onrender.com/api
+
 ## Déploiement Vercel
 
 ### Pourquoi « Chargement des documents » restait bloqué en prod
@@ -31,3 +34,9 @@ curl -s "https://bserp.vercel.app/api/health"
 ```
 
 Tu dois voir du JSON (`"status":"ok"`). Si tu reçois du HTML, le dernier déploiement n’inclut pas encore `vercel.json` ou la config Vercel écrase les rewrites — refais un déploiement depuis la branche qui contient ce fichier.
+
+### Téléchargement de documents (prod)
+
+- Le frontend appelle **`https://bserp-backend-latest.onrender.com/api/documents/{id}/download`** (voir la console : `[BSERP] API baseURL = …`).
+- Si erreur **fichier introuvable** : le fichier a été perdu sur Render → **ré-uploader** le document.
+- Sur Render (service `bserp-backend`) : disque **`/app/storage`** + variable `FILESYSTEM_LOCAL_ROOT=/app/storage/app/private`.

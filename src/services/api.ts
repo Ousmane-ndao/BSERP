@@ -46,9 +46,8 @@ function resolveApiBaseURL(): string {
 }
 
 const resolvedApiBaseURL = resolveApiBaseURL();
-if (import.meta.env.DEV) {
-  // Aide au diagnostic : la vraie connexion doit apparaître vers …/api/login (pas POST sur :8080/login sans /api).
-  console.debug('[BSERP] API baseURL =', resolvedApiBaseURL, '| VITE_API_URL =', import.meta.env.VITE_API_URL ?? '(non défini)');
+if (import.meta.env.DEV || import.meta.env.PROD) {
+  console.info('[BSERP] API baseURL =', resolvedApiBaseURL);
 }
 
 const api = axios.create({
@@ -223,7 +222,12 @@ export const documentsApi = {
     return api.post('/documents', formData);
   },
   delete: (id: string) => api.delete(`/documents/${id}`),
-  download: (id: string) => api.get(`/documents/${id}/download`, { responseType: 'blob' }),
+  download: (id: string) =>
+    api.get(`/documents/${id}/download`, {
+      responseType: 'blob',
+      // Fichiers + cold-start Render : délai plus long qu’une requête JSON classique
+      timeout: 120_000,
+    }),
 };
 
 // Payments
@@ -282,6 +286,11 @@ async function assertBlobIsNotJsonError(blob: Blob): Promise<Blob> {
   }
   const sample = await blob.slice(0, Math.min(blob.size, 2048)).text();
   const trimmed = sample.trimStart();
+  if (trimmed.startsWith('<')) {
+    throw new Error(
+      'Fichier introuvable sur le serveur. Ré-uploadez le document après un redéploiement backend.',
+    );
+  }
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
     return blob;
   }
