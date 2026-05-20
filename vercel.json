@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://bserp-backend-latest.onrender.com/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://bserp-backend-latest.onrender.com/api/:path*"
     }
   ]
 }
