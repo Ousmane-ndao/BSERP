@@ -4,12 +4,20 @@ import { LOGIN_ROUTE } from '@/lib/routes';
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
 function resolveApiBaseURL(): string {
   const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  /** Même origine : en prod sur Vercel, `vercel.json` peut réécrire `/api/*` vers le backend Render. */
+  /** Même origine : `vercel.json` réécrit `/api/*` vers Render (pas de CORS navigateur). */
   const fallbackSameOrigin = '/api';
 
   // En dev, toujours le proxy Vite (/api) pour éviter le CORS navigateur.
   if (import.meta.env.DEV) {
     return '/api';
+  }
+
+  // En prod sur Vercel : toujours /api (proxy), jamais l’URL Render directe (sinon CORS).
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.endsWith('.vercel.app')) {
+      return '/api';
+    }
   }
 
   if (!raw) {
