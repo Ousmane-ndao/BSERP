@@ -258,16 +258,14 @@ export const invoicesApi = {
   sendEmail: (id: string) => api.post(`/invoices/${id}/send-email`),
 };
 
-/** Télécharge un export (CSV, XLSX, PDF) avec le jeton Sanctum. */
-export async function downloadExport(path: string, fallbackFilename: string): Promise<void> {
-  const res = await api.get(path, { responseType: 'blob' });
-  const dispo = res.headers['content-disposition'] as string | undefined;
-  let filename = fallbackFilename;
-  if (dispo) {
-    const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(dispo);
-    if (m) filename = decodeURIComponent(m[1].trim());
-  }
-  const url = window.URL.createObjectURL(res.data);
+function filenameFromDisposition(dispo: string | undefined, fallback: string): string {
+  if (!dispo) return fallback;
+  const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(dispo);
+  return m ? decodeURIComponent(m[1].trim()) : fallback;
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -275,6 +273,58 @@ export async function downloadExport(path: string, fallbackFilename: string): Pr
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+}
+
+/** Détecte une réponse JSON d’erreur renvoyée avec responseType blob (ex. 404 fichier manquant). */
+async function assertBlobIsNotJsonError(blob: Blob): Promise<Blob> {
+  if (blob.size === 0) {
+    throw new Error('Réponse vide du serveur.');
+  }
+  const sample = await blob.slice(0, Math.min(blob.size, 2048)).text();
+  const trimmed = sample.trimStart();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return blob;
+  }
+  try {
+    const json = JSON.parse(await blob.text()) as { message?: string };
+    throw new Error(json.message || 'Téléchargement impossible.');
+  } catch (e) {
+    if (e instanceof Error && !(e instanceof SyntaxError)) {
+      throw e;
+    }
+  }
+  return blob;
+}
+
+async function downloadBlobResponse(
+  res: { data: Blob; headers: Record<string, unknown> },
+  fallbackFilename: string,
+): Promise<void> {
+  const blob = await assertBlobIsNotJsonError(res.data);
+  const filename = filenameFromDisposition(
+    res.headers['content-disposition'] as string | undefined,
+    fallbackFilename,
+  );
+  triggerBrowserDownload(blob, filename);
+}
+
+/** Télécharge un document (gère les erreurs API en JSON). */
+export async function downloadDocumentFile(id: string, fallbackFilename: string): Promise<void> {
+  try {
+    const res = await documentsApi.download(id);
+    await downloadBlobResponse(res, fallbackFilename);
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      await assertBlobIsNotJsonError(err.response.data);
+    }
+    throw err;
+  }
+}
+
+/** Télécharge un export (CSV, XLSX, PDF) avec le jeton Sanctum. */
+export async function downloadExport(path: string, fallbackFilename: string): Promise<void> {
+  const res = await api.get(path, { responseType: 'blob' });
+  await downloadBlobResponse(res, fallbackFilename);
 }
 
 /** Export liste dossiers (mêmes filtres que GET /dossiers ; pas de pagination côté export). */

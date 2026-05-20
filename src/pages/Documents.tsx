@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { documentsApi, dossiersApi } from '@/services/api';
+import { documentsApi, dossiersApi, downloadDocumentFile } from '@/services/api';
 import { DOCUMENT_TYPES } from '@/constants/documentTypes';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -136,16 +136,12 @@ export default function Documents() {
 
   const handleDownload = async (id: string, name: string) => {
     try {
-      const response = await documentsApi.download(id);
-      const blob = new Blob([response.data]);
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = href;
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(href);
-    } catch {
-      setError('Téléchargement impossible.');
+      await downloadDocumentFile(id, name);
+      setError('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Téléchargement impossible.';
+      setError(msg);
+      toast({ title: 'Téléchargement', description: msg, variant: 'destructive' });
     }
   };
 
