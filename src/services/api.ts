@@ -2,7 +2,7 @@ import axios, { type AxiosHeaders } from 'axios';
 import { LOGIN_ROUTE } from '@/lib/routes';
 
 /** Backend Render en production (CORS configuré pour bserp.vercel.app). */
-const PROD_RENDER_API = 'https://bserp-backend-latest.onrender.com/api';
+const PROD_RENDER_API = 'https://bserp-backend-5vc2.onrender.com/api';
 
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
 export function resolveApiBaseURL(): string {
