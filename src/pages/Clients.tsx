@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
-import { clientsApi } from '@/services/api';
+import { clientsApi, extractApiErrorMessage } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { DASH_GREEN } from '@/lib/dashboardTheme';
 import { useToast } from '@/hooks/use-toast';
@@ -126,10 +126,11 @@ export default function Clients() {
       // Invalidation du cache pour rafraîchir la liste
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
-    } catch {
+    } catch (err) {
+      const description = await extractApiErrorMessage(err, "L'enregistrement du client a échoué.");
       toast({
         title: 'Erreur',
-        description: "L'enregistrement du client a échoué.",
+        description,
         variant: 'destructive',
       });
     } finally {

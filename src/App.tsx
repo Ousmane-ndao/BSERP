@@ -12,6 +12,8 @@ import Clients from "@/pages/Clients";
 import DossierEtudiant from "@/pages/DossierEtudiant";
 import Dossiers from "@/pages/Dossiers";
 import Documents from "@/pages/Documents";
+import DocumentsClient from "@/pages/DocumentsClient";
+import MonDossier from "@/pages/MonDossier";
 import Comptabilite from "@/pages/Comptabilite";
 import Personnel from "@/pages/Personnel";
 import Parametres from "@/pages/Parametres";
@@ -44,6 +46,8 @@ const App = () => (
               <Route path="/clients/:clientId/dossier-etudiant" element={<DossierEtudiant />} />
               <Route path="/dossiers" element={<Dossiers />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/documents/client/:clientId" element={<DocumentsClient />} />
+              <Route path="/mon-dossier" element={<MonDossier />} />
               <Route path="/comptabilite" element={<Comptabilite />} />
               <Route path="/personnel" element={<Personnel />} />
               <Route path="/parametres" element={<Parametres />} />

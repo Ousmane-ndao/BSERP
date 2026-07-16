@@ -193,10 +193,26 @@ export default function DossierEtudiant() {
       subtitle={client ? `${client.prenom} ${client.nom}` : (loading ? 'Chargement…' : '—')}
       stripLabel="Comptes et suivi du dossier"
       headerActions={
-        <Button variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/20" onClick={() => navigate('/clients')}>
-          <ArrowLeft size={16} className="mr-2" />
-          Retour
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="border-white/25 bg-white/10 text-white hover:bg-white/20"
+            onClick={() => navigate(`/mon-dossier?client_id=${clientId}`)}
+          >
+            Mon dossier (vue étudiant)
+          </Button>
+          <Button
+            variant="outline"
+            className="border-white/25 bg-white/10 text-white hover:bg-white/20"
+            onClick={() => navigate(`/documents/client/${clientId}`)}
+          >
+            Documents
+          </Button>
+          <Button variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/20" onClick={() => navigate('/clients')}>
+            <ArrowLeft size={16} className="mr-2" />
+            Retour
+          </Button>
+        </div>
       }
     >
       {loading && (

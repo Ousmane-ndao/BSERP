@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { dossiersApi, downloadDossiersExport, clientsApi } from '@/services/api';
+import { dossiersApi, downloadDossiersExport, clientsApi, extractApiErrorMessage } from '@/services/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { useAuth, type Role } from '@/contexts/AuthContext';
@@ -178,6 +178,7 @@ export default function Dossiers() {
   const [saving, setSaving] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState('');
 
   const [filterStatut, setFilterStatut] = useState('');
@@ -252,6 +253,32 @@ export default function Dossiers() {
     ],
   );
 
+  const currentPageCount = dossiers.length;
+  const currentPageDocumentCount = useMemo(
+    () => dossiers.reduce((sum, dossier) => sum + dossier.documentCount, 0),
+    [dossiers],
+  );
+  const activeFilters = useMemo(
+    () => {
+      const items: string[] = [];
+      if (debouncedSearch) items.push(`Recherche : "${debouncedSearch}"`);
+      if (filterStatut) items.push(`Statut : ${filterStatut}`);
+      if (filterDestinationGroup) {
+        const label = DESTINATION_GROUPS.find((d) => d.value === filterDestinationGroup)?.label;
+        items.push(`Destination : ${label ?? filterDestinationGroup}`);
+      }
+      if (filterDateFrom && filterDateTo) {
+        items.push(`Ouverture : ${filterDateFrom} → ${filterDateTo}`);
+      } else if (filterDateFrom) {
+        items.push(`Ouverture depuis : ${filterDateFrom}`);
+      } else if (filterDateTo) {
+        items.push(`Ouverture jusqu'à : ${filterDateTo}`);
+      }
+      return items;
+    },
+    [debouncedSearch, filterStatut, filterDestinationGroup, filterDateFrom, filterDateTo],
+  );
+
   const loadClients = useCallback(async () => {
     try {
       const clientsRes = await clientsApi.getOptions({
@@ -267,6 +294,16 @@ export default function Dossiers() {
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
+
+  const resetFilters = useCallback(() => {
+    setSearchInput('');
+    setDebouncedSearch('');
+    setFilterStatut('');
+    setFilterDestinationGroup('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setPage(1);
+  }, [setPage]);
 
   const openDetail = async (row: DossierListItem) => {
     setDetailLoading(true);
@@ -301,10 +338,11 @@ export default function Dossiers() {
         statut: newDossier.statut,
       });
       setNewDossier({ client_id: '', type: '', statut: 'En cours' });
+      setCreateOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['dossiers'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
-    } catch {
-      setError("Impossible de créer le dossier.");
+    } catch (err) {
+      setError(await extractApiErrorMessage(err, 'Impossible de créer le dossier.'));
     } finally {
       setSaving(false);
     }
@@ -397,75 +435,57 @@ export default function Dossiers() {
     <DashboardPageShell
       title="Dossiers"
       subtitle="Suivi des dossiers étudiants et voyages"
-      stripLabel="Liste paginée, filtres et exports"
+      stripLabel="Filtrer, créer et exporter les dossiers"
       headerActions={
         canCreateDossier ? (
-          <form
-            onSubmit={handleCreate}
-            className="flex max-w-full flex-wrap items-end gap-3 rounded-xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm sm:p-4"
+          <Button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90"
           >
-            <div>
-              <label className="mb-1 block text-xs text-white/80">Client</label>
-              <select
-                className="h-10 rounded-md border border-white/25 bg-white/10 px-3 text-sm text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                value={newDossier.client_id}
-                onChange={(e) => setNewDossier((p) => ({ ...p, client_id: e.target.value }))}
-                required
-              >
-                <option value="" className="text-slate-900">
-                  Sélectionner
-                </option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id} className="text-slate-900">
-                    {c.prenom} {c.nom}
-                  </option>
-                ))}
-              </select>
-              <Input
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                placeholder="Rechercher un client..."
-                className="mt-2 h-9 border-white/25 bg-white/95 text-slate-900 placeholder:text-slate-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-white/80">Type</label>
-              <Input
-                value={newDossier.type}
-                onChange={(e) => setNewDossier((p) => ({ ...p, type: e.target.value }))}
-                placeholder="Visa étudiant..."
-                className="w-48 border-white/25 bg-white/95 text-slate-900 placeholder:text-slate-500 shadow-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-white/80">Statut</label>
-              <select
-                className="h-10 rounded-md border border-white/25 bg-white/10 px-3 text-sm text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                value={newDossier.statut}
-                onChange={(e) => setNewDossier((p) => ({ ...p, statut: e.target.value as DossierStatut }))}
-              >
-                {STATUT_OPTIONS.map((s) => (
-                  <option key={s} value={s} className="text-slate-900">
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="submit"
-              disabled={saving}
-              className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90"
-            >
-              <FolderOpen size={16} className="mr-2" />
-              {saving ? 'Création...' : 'Nouveau dossier'}
-            </Button>
-          </form>
+            <FolderOpen size={16} />
+            Nouveau dossier
+          </Button>
         ) : undefined
       }
     >
       {dossiersError && <p className="text-sm text-destructive">Impossible de charger les dossiers.</p>}
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-end">
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dossiers totaux</p>
+            <p className="mt-3 text-3xl font-semibold text-foreground">{total.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{from}–{to} affichés</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dossiers page</p>
+            <p className="mt-3 text-3xl font-semibold text-foreground">{currentPageCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Documents sur cette page : {currentPageDocumentCount}</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tri</p>
+            <p className="mt-3 text-xl font-semibold text-foreground">{sortBy.replace('_', ' ')}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Direction : {sortDir.toUpperCase()}</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Filtres actifs</p>
+          <div className="mt-3 space-y-2 text-sm text-foreground">
+            {activeFilters.length > 0 ? (
+              activeFilters.map((item) => (
+                <div key={item} className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2">
+                  {item}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucun filtre actif.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr] xl:items-end">
         <div className="relative min-w-[min(100%,20rem)] flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -570,6 +590,82 @@ export default function Dossiers() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={(open) => setCreateOpen(open)}>
+        <DialogContent className="flex max-h-[min(90vh,880px)] w-[calc(100vw-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden border-border bg-background p-0 text-foreground shadow-2xl sm:rounded-xl">
+          <DialogHeader className="shrink-0 space-y-1 border-b border-border/80 bg-gradient-to-br from-slate-50/90 to-emerald-50/40 px-6 py-4 text-left dark:from-slate-950/80 dark:to-emerald-950/20">
+            <DialogTitle className="text-lg font-semibold tracking-tight sm:text-xl">Créer un nouveau dossier</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Associez un dossier à un client existant et lancez le suivi immédiatement.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+            <form id="create-dossier-form" onSubmit={handleCreate} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Client</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={newDossier.client_id}
+                    onChange={(e) => setNewDossier((p) => ({ ...p, client_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">Sélectionner</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.prenom} {c.nom}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Rechercher un client..."
+                    className="mt-2"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Type de dossier</label>
+                  <Input
+                    value={newDossier.type}
+                    onChange={(e) => setNewDossier((p) => ({ ...p, type: e.target.value }))}
+                    placeholder="Visa étudiant..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Statut</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={newDossier.statut}
+                    onChange={(e) => setNewDossier((p) => ({ ...p, statut: e.target.value as DossierStatut }))}
+                  >
+                    {STATUT_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div className="shrink-0 border-t border-border/80 bg-muted/30 px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button type="submit" form="create-dossier-form" disabled={saving}>
+                {saving ? 'Création…' : 'Créer le dossier'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <p className="text-sm text-muted-foreground">
         {loading

@@ -1,29 +1,35 @@
 import axios, { type AxiosHeaders } from 'axios';
 import { LOGIN_ROUTE } from '@/lib/routes';
 
+/** Backend Render en production (CORS configuré pour bserp.vercel.app). */
+const PROD_RENDER_API = 'https://bserp-backend-latest.onrender.com/api';
+
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
-function resolveApiBaseURL(): string {
-  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  /** Même origine : `vercel.json` réécrit `/api/*` vers Render (pas de CORS navigateur). */
+export function resolveApiBaseURL(): string {
   const fallbackSameOrigin = '/api';
 
-  // En dev, toujours le proxy Vite (/api) pour éviter le CORS navigateur.
   if (import.meta.env.DEV) {
-    return '/api';
+    return fallbackSameOrigin;
   }
 
-  // En prod sur Vercel : toujours /api (proxy), jamais l’URL Render directe (sinon CORS).
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host.endsWith('.vercel.app')) {
-      return '/api';
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+
+    if (!isLocal) {
+      // Sur Vercel, /api renvoie souvent index.html si vercel.json n’est pas au bon dossier racine.
+      // Appels directs vers Render : CORS OK (voir config/cors.php).
+      if (host.endsWith('.vercel.app')) {
+        const direct = (import.meta.env.VITE_API_DIRECT_URL as string | undefined)?.trim() || PROD_RENDER_API;
+        const noTrail = direct.replace(/\/+$/, '');
+        return noTrail.endsWith('/api') ? noTrail : `${noTrail}/api`;
+      }
+      return fallbackSameOrigin;
     }
   }
 
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
   if (!raw) {
-    console.warn(
-      '[BSERP] VITE_API_URL absent au build : requêtes vers /api (réécriture Vercel → backend si vercel.json est déployé). Définissez VITE_API_URL=https://…/api pour un autre hébergeur.',
-    );
     return fallbackSameOrigin;
   }
 
@@ -43,9 +49,6 @@ function resolveApiBaseURL(): string {
       );
     }
 
-    // Ne pas remplacer par /api ici : sur Vercel, /api sans rewrite ne pointe pas vers Laravel et casse
-    // clients/documents. Si l’API est en localhost dans l’env alors que le site est en prod, l’URL explicite
-    // évite un fallback silencieux vers le mauvais hôte.
     return normalized;
   } catch {
     console.error('[BSERP] VITE_API_URL invalide:', raw);
@@ -53,20 +56,14 @@ function resolveApiBaseURL(): string {
   }
 }
 
-const resolvedApiBaseURL = resolveApiBaseURL();
-if (import.meta.env.DEV || import.meta.env.PROD) {
-  console.info('[BSERP] API baseURL =', resolvedApiBaseURL);
-}
-
 const api = axios.create({
-  baseURL: resolvedApiBaseURL,
   headers: { 'Content-Type': 'application/json' },
-  // Timeout for API requests (ms) — protège contre hangs si le backend cold-start
-  // Augmenté pour tolérer les cold-starts Render (30s)
   timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
+  // Recalcul à chaque requête : évite une baseURL Render figée au chargement du bundle.
+  config.baseURL = resolveApiBaseURL();
   const token = localStorage.getItem('bserp_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // For multipart uploads, let the browser set Content-Type with boundary.
@@ -219,6 +216,7 @@ export const dossierExportsApi = {
 // Documents
 export const documentsApi = {
   getAll: (params?: Record<string, string>) => api.get('/documents', { params }),
+  getClientsSummary: (params?: Record<string, string>) => api.get('/documents/clients-summary', { params }),
   getById: (id: string) => api.get(`/documents/${id}`),
   upload: (dossierId: string, file: File, typeDocument?: string) => {
     const formData = new FormData();
@@ -227,15 +225,42 @@ export const documentsApi = {
     if (typeDocument) {
       formData.append('type_document', typeDocument);
     }
-    return api.post('/documents', formData);
+    return api.post('/documents', formData, {
+      timeout: 120_000,
+    });
+  },
+  update: async (id: string, data: Record<string, unknown>, file?: File) => {
+    if (file) {
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value));
+        }
+      }
+      formData.append('file', file);
+      formData.append('_method', 'PATCH');
+      return api.post(`/documents/${id}`, formData, { timeout: 120_000 });
+    }
+    try {
+      return await api.patch(`/documents/${id}`, data);
+    } catch (error) {
+      const e = error as { response?: unknown };
+      if (!e.response) {
+        return api.put(`/documents/${id}`, data);
+      }
+      throw error;
+    }
   },
   delete: (id: string) => api.delete(`/documents/${id}`),
   download: (id: string) =>
     api.get(`/documents/${id}/download`, {
       responseType: 'blob',
-      // Fichiers + cold-start Render : délai plus long qu’une requête JSON classique
       timeout: 120_000,
     }),
+};
+
+export const myDossierApi = {
+  get: (params?: Record<string, string>) => api.get('/my-dossier', { params }),
 };
 
 // Payments
@@ -348,7 +373,11 @@ export async function extractApiErrorMessage(err: unknown, fallback: string): Pr
       return 'Session expirée. Reconnectez-vous.';
     }
     if (!err.response) {
-      return 'Connexion au serveur impossible (réseau ou CORS). Actualisez la page (Ctrl+F5).';
+      const isUpload = err.config?.data instanceof FormData;
+      if (isUpload) {
+        return "Échec de connexion pendant l'upload (réseau, navigateur ou extension). Essayez une fenêtre privée sans extensions, attendez 1 min si le serveur était en veille, puis réessayez.";
+      }
+      return 'Connexion au serveur impossible. Attendez 1 min (serveur Render en veille) puis réessayez.';
     }
     return err.message || fallback;
   }
@@ -400,5 +429,6 @@ export const settingsApi = {
   getCompany: () => api.get('/settings/company'),
   updateCompany: (data: Record<string, unknown>) => api.put('/settings/company', data),
 };
+
 
 export default api;

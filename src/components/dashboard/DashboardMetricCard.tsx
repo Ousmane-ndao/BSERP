@@ -13,8 +13,8 @@ export function DashboardMetricCard({ label, value, icon: Icon, headerBg, bodyBg
   if (loading) {
     return (
       <div className="dashboard-metric-card animate-pulse">
-        <div className="dashboard-metric-head bg-slate-200 h-10" />
-        <div className="dashboard-metric-body bg-slate-50 h-16" />
+        <div className="dashboard-metric-head bg-slate-200 h-8" />
+        <div className="dashboard-metric-body bg-slate-50 h-12" />
       </div>
     );
   }
@@ -25,11 +25,11 @@ export function DashboardMetricCard({ label, value, icon: Icon, headerBg, bodyBg
         className="dashboard-metric-head text-white"
         style={{ backgroundColor: headerBg }}
       >
-        <Icon className="h-5 w-5 shrink-0 opacity-95" strokeWidth={2} />
-        <span>{label}</span>
+        <Icon className="h-4 w-4 shrink-0 opacity-95" strokeWidth={2} />
+        <span className="truncate">{label}</span>
       </div>
       <div className="dashboard-metric-body" style={{ backgroundColor: bodyBg }}>
-        <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+        <p className="text-lg font-bold tracking-tight text-slate-900">{value}</p>
       </div>
     </div>
   );

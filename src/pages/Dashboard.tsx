@@ -231,7 +231,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid auto-rows-max gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {metrics.map((m) => (
           <DashboardMetricCard key={m.label} {...m} loading={loading} />
         ))}
@@ -391,7 +391,7 @@ export default function Dashboard() {
       </div>
 
       {dossiersByDestination.length > 0 && (
-        <div className="dashboard-chart-card">
+        <div className="rounded-lg border border-slate-200/90 bg-white p-4 shadow-md">
           <h2 className="mb-4 text-sm font-semibold text-slate-800">Dossiers par destination</h2>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             {dossiersByDestination.map((d, i) => (

@@ -10,6 +10,7 @@ import {
   expensesApi,
   invoicesApi,
   employeesApi,
+  myDossierApi,
   settingsApi,
   studentAccountsApi,
   studentProgressApi,
@@ -67,6 +68,10 @@ export const useDossiers = (params?: Record<string, string>) => {
       const res = await dossiersApi.getAll(params);
       return res.data;
     },
+    keepPreviousData: true,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 };
 
@@ -107,11 +112,34 @@ export const useDocuments = (params?: Record<string, string>) => {
       const res = await documentsApi.getAll(params);
       return res.data;
     },
-    // Render/Postgres may briefly fail on cold starts; retry transient server/network failures.
+    enabled: params !== undefined,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
     retryOnMount: true,
     refetchOnReconnect: true,
+  });
+};
+
+export const useDocumentsClientsSummary = (params?: Record<string, string>) => {
+  return useQuery({
+    queryKey: ['documents_clients_summary', params],
+    queryFn: async () => {
+      const res = await documentsApi.getClientsSummary(params);
+      return res.data;
+    },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+  });
+};
+
+export const useMyDossier = (params?: Record<string, string>) => {
+  return useQuery({
+    queryKey: ['my_dossier', params],
+    queryFn: async () => {
+      const res = await myDossierApi.get(params);
+      return res.data;
+    },
+    retry: 1,
   });
 };
 

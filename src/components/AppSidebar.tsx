@@ -3,6 +3,7 @@ import {
   Users,
   FolderOpen,
   FileText,
+  FolderHeart,
   DollarSign,
   UserCog,
   Settings,
@@ -18,6 +19,7 @@ const menuItems = [
   { key: 'clients', label: 'Clients', icon: Users, path: '/clients' },
   { key: 'dossiers', label: 'Dossiers', icon: FolderOpen, path: '/dossiers' },
   { key: 'documents', label: 'Documents', icon: FileText, path: '/documents' },
+  { key: 'mon_dossier', label: 'Mon dossier', icon: FolderHeart, path: '/mon-dossier' },
   { key: 'comptabilite', label: 'Comptabilité', icon: DollarSign, path: '/comptabilite' },
   { key: 'personnel', label: 'Personnel', icon: UserCog, path: '/personnel' },
   { key: 'parametres', label: 'Paramètres', icon: Settings, path: '/parametres' },
@@ -63,7 +65,7 @@ export default function AppSidebar() {
       {/* Nav */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {visibleItems.map((item) => {
-          const active = location.pathname === item.path;
+          const active = location.pathname === item.path || (item.path === '/mon-dossier' && location.pathname.startsWith('/mon-dossier'));
           return (
             <button
               key={item.key}

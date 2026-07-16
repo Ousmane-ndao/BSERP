@@ -33,13 +33,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Role-based menu access config
 export const ROLE_ACCESS: Record<Role, string[]> = {
-  directrice: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel'],
-  responsable_admin: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel'],
-  conseillere_pedagogique: ['dashboard', 'clients', 'dossiers', 'documents'],
-  informaticien: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel'],
-  comptable: ['dashboard', 'clients', 'comptabilite'],
-  commercial: ['dashboard', 'clients', 'dossiers'],
-  accueil: ['dashboard', 'clients', 'dossiers'],
+  directrice: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel', 'mon_dossier'],
+  responsable_admin: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel', 'mon_dossier'],
+  conseillere_pedagogique: ['dashboard', 'clients', 'dossiers', 'documents', 'mon_dossier'],
+  informaticien: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel', 'mon_dossier'],
+  comptable: ['dashboard', 'clients', 'comptabilite', 'mon_dossier'],
+  commercial: ['dashboard', 'clients', 'dossiers', 'mon_dossier'],
+  accueil: ['dashboard', 'clients', 'dossiers', 'mon_dossier'],
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

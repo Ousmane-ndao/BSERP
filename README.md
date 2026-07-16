@@ -12,20 +12,23 @@ Sur **https://bserp.vercel.app**, le frontend est du **statique**. Si `axios` ut
 Deux correctifs sont en place :
 
 1. **`vercel.json`** — réécriture des requêtes `/api/*` vers le backend Render (`bserp-backend-latest.onrender.com`). Ainsi, même sans variable `VITE_API_URL`, les appels `/api/documents` etc. atteignent l’API.
-2. **`src/services/api.ts`** — en production, on ne remplace plus l’URL Render par `/api` dans le cas « API en localhost » (ce qui envoyait tout vers Vercel par erreur).
+2. **`src/services/api.ts`** — sur `*.vercel.app`, appels **directs** vers Render (`https://bserp-backend-latest.onrender.com/api`) car le proxy `/api` renvoie parfois `index.html` si `vercel.json` n’est pas au dossier racine Vercel. Le CORS backend autorise `bserp.vercel.app`.
 
 ### Variables d’environnement (recommandé)
 
-| Variable | Exemple |
-|----------|---------|
-| `VITE_API_URL` | `https://bserp-backend-latest.onrender.com/api` |
+| Variable | Vercel prod |
+|----------|-------------|
+| `VITE_API_URL` | **Ne pas définir** |
+| `VITE_API_DIRECT_URL` | Optionnel : `https://bserp-backend-latest.onrender.com/api` (défaut dans le code) |
 | `VITE_FRONTEND_URL` | `https://bserp.vercel.app` |
 
-Après changement des variables : **redéployer** (rebuild), les `VITE_*` sont injectées au build.
+**Root Directory Vercel** : doit être `BSERP` (là où se trouve `vercel.json`).
+
+Après changement : **redéployer** le frontend.
 
 ### Si tu changes d’URL backend Render
 
-Mets à jour **`vercel.json`** (`destination` du rewrite) **ou** configure uniquement `VITE_API_URL` (appels directs cross-origin ; le CORS doit rester correct côté Laravel).
+Mets à jour **`vercel.json`** (`destination` du rewrite). Ne pas compter sur `VITE_API_URL` sur Vercel.
 
 ### Vérifier que la réécriture Vercel fonctionne (après déploiement)
 
