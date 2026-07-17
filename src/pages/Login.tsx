@@ -23,7 +23,11 @@ function loginErrorMessage(err: unknown): string {
       return msg || 'Données invalides.';
     }
     if (!err.response) {
-      return "Impossible de joindre l'API. Vérifiez que le serveur Laravel est démarré.";
+      const isTimeout = err.code === 'ECONNABORTED' || err.message.includes('timeout');
+      if (isTimeout) {
+        return 'Le serveur met trop de temps à répondre (Render en veille). Attendez 1 minute puis réessayez.';
+      }
+      return "Impossible de joindre l'API. Vérifiez votre connexion ou attendez si le serveur Render démarre.";
     }
     return msg || `Erreur serveur (${status}).`;
   }

@@ -82,8 +82,10 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     const status = error.response?.status;
-    const url = error.config?.url;
-    if (status === 401) {
+    const url = String(error.config?.url ?? '');
+    const isLoginRequest = url.includes('/login');
+
+    if (status === 401 && !isLoginRequest) {
       localStorage.removeItem('bserp_token');
       localStorage.removeItem('bserp_user');
       window.location.href = LOGIN_ROUTE;
@@ -103,7 +105,15 @@ api.interceptors.response.use(
 
 // Auth
 export const authApi = {
-  login: (email: string, password: string) => api.post('/login', { email, password }),
+  login: (email: string, password: string) =>
+    retryRequest(
+      () =>
+        api.post('/login', { email, password }, {
+          timeout: 90_000,
+        }),
+      2,
+      1500,
+    ),
   logout: () => api.post('/logout'),
   me: () => api.get('/auth/me'),
   updateProfile: (data: Record<string, unknown>) => api.put('/settings/profile', data),

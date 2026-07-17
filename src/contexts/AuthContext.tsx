@@ -109,7 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     const token = response.data?.token as string | undefined;
-    const apiUser = normalizeUser(response.data?.user);
+    const rawUser = response.data?.user as Record<string, unknown> | { data?: Record<string, unknown> } | undefined;
+    const apiUser = normalizeUser(
+      rawUser && typeof rawUser === 'object' && 'data' in rawUser && rawUser.data
+        ? rawUser.data
+        : rawUser,
+    );
 
     if (!token || !apiUser) {
       throw new Error('Réponse de connexion invalide');
