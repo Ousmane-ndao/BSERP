@@ -59,6 +59,7 @@ export function resolveApiBaseURL(): string {
 const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -157,6 +158,8 @@ export const clientsApi = {
 
 export const destinationsApi = {
   getAll: () => api.get('/destinations'),
+  getManage: () => api.get('/destinations/manage'),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/destinations/${id}`, data),
 };
 
 /** Comptes étudiants (email / Campus France / Parcoursup) — champs sensibles chiffrés côté API (cast encrypted Laravel) */
@@ -257,6 +260,8 @@ export const documentsApi = {
       responseType: 'blob',
       timeout: 120_000,
     }),
+  getSignedUrl: (id: string, minutes = 30) =>
+    api.get(`/documents/${id}/signed-url`, { params: { minutes: String(minutes) } }),
 };
 
 export const myDossierApi = {
@@ -270,6 +275,15 @@ export const paymentsApi = {
   create: (data: Record<string, unknown>) => api.post('/payments', data),
   update: (id: string, data: Record<string, unknown>) => api.put(`/payments/${id}`, data),
   delete: (id: string) => api.delete(`/payments/${id}`),
+};
+
+export const dossierPaymentsApi = {
+  getAll: (clientId: string, dossierId: string, params?: Record<string, string>) =>
+    api.get(`/clients/${clientId}/dossiers/${dossierId}/payments`, { params }),
+  create: (clientId: string, dossierId: string, data: Record<string, unknown>) =>
+    api.post(`/clients/${clientId}/dossiers/${dossierId}/payments`, data),
+  getSummary: (clientId: string, dossierId: string) =>
+    api.get(`/clients/${clientId}/dossiers/${dossierId}/payment-summary`),
 };
 
 export const accountingApi = {
@@ -401,6 +415,26 @@ export async function downloadDocumentFile(id: string, fallbackFilename: string)
 export async function downloadExport(path: string, fallbackFilename: string): Promise<void> {
   const res = await api.get(path, { responseType: 'blob' });
   await downloadBlobResponse(res, fallbackFilename);
+}
+
+/** Export paiements / acomptes (CSV, XLSX, PDF) avec filtres optionnels. */
+export async function downloadPaymentsExport(
+  format: 'csv' | 'excel' | 'pdf',
+  filters: Record<string, string | undefined> = {},
+): Promise<void> {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && String(v).trim() !== '') params.set(k, String(v).trim());
+  }
+  const q = params.toString();
+  const ext = format === 'excel' ? 'xlsx' : format;
+  const path =
+    format === 'csv'
+      ? `/exports/payments/csv${q ? `?${q}` : ''}`
+      : format === 'excel'
+        ? `/exports/payments/excel${q ? `?${q}` : ''}`
+        : `/exports/payments/pdf${q ? `?${q}` : ''}`;
+  await downloadExport(path, `paiements.${ext}`);
 }
 
 /** Export liste dossiers (mêmes filtres que GET /dossiers ; pas de pagination côté export). */
