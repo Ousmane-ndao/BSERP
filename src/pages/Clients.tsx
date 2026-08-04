@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, GraduationCap, Loader2 } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, GraduationCap, Loader2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { DASH_GREEN } from '@/lib/dashboardTheme';
 import { useToast } from '@/hooks/use-toast';
 import { useClients, useDestinations } from '@/hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Client {
   id: string;
@@ -65,6 +66,8 @@ export default function Clients() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasAccess } = useAuth();
+  const canViewPayments = hasAccess(['directrice', 'responsable_admin', 'comptable', 'informaticien']);
 
   // Utilisation de React Query pour les clients
   const { data: clientsData, isLoading: loadingClients, isError: clientsError } = useClients({
@@ -391,6 +394,15 @@ export default function Clients() {
                     >
                       <GraduationCap size={15} />
                     </button>
+                    {canViewPayments && (
+                      <button
+                        onClick={() => navigate(`/clients/${c.id}/payments`)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                        title="Paiements / acomptes"
+                      >
+                        <Wallet size={15} />
+                      </button>
+                    )}
                     <button onClick={() => navigate(`/dossiers?client=${c.id}`)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Dossiers"><Eye size={15} /></button>
                     <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Modifier"><Edit size={15} /></button>
                     <button onClick={() => void handleDelete(c.id)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 size={15} /></button>

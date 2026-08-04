@@ -7,6 +7,7 @@ import {
   documentsApi,
   accountingApi,
   paymentsApi,
+  dossierPaymentsApi,
   expensesApi,
   invoicesApi,
   employeesApi,
@@ -143,13 +144,40 @@ export const useMyDossier = (params?: Record<string, string>) => {
   });
 };
 
-export const usePayments = (params?: Record<string, string>) => {
+export const usePayments = (params?: Record<string, string>, enabled = true) => {
   return useQuery({
     queryKey: ['payments', params],
     queryFn: async () => {
       const res = await paymentsApi.getAll(params);
       return res.data;
     },
+    enabled,
+  });
+};
+
+export const useDossierPayments = (
+  clientId: string,
+  dossierId: string,
+  params?: Record<string, string>,
+) => {
+  return useQuery({
+    queryKey: ['dossier_payments', clientId, dossierId, params],
+    queryFn: async () => {
+      const res = await dossierPaymentsApi.getAll(clientId, dossierId, params);
+      return res.data;
+    },
+    enabled: !!clientId && !!dossierId,
+  });
+};
+
+export const useDossierPaymentSummary = (clientId: string, dossierId: string) => {
+  return useQuery({
+    queryKey: ['dossier_payment_summary', clientId, dossierId],
+    queryFn: async () => {
+      const res = await dossierPaymentsApi.getSummary(clientId, dossierId);
+      return res.data;
+    },
+    enabled: !!clientId && !!dossierId,
   });
 };
 

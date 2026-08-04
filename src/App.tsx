@@ -15,6 +15,7 @@ import Documents from "@/pages/Documents";
 import DocumentsClient from "@/pages/DocumentsClient";
 import MonDossier from "@/pages/MonDossier";
 import Comptabilite from "@/pages/Comptabilite";
+import ClientPayments from "@/pages/ClientPayments";
 import Personnel from "@/pages/Personnel";
 import Parametres from "@/pages/Parametres";
 import NotFound from "@/pages/NotFound";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/documents" element={<Documents />} />
               <Route path="/documents/client/:clientId" element={<DocumentsClient />} />
               <Route path="/mon-dossier" element={<MonDossier />} />
+              <Route path="/clients/:clientId/payments" element={<ClientPayments />} />
               <Route path="/comptabilite" element={<Comptabilite />} />
               <Route path="/personnel" element={<Personnel />} />
               <Route path="/parametres" element={<Parametres />} />

@@ -59,7 +59,7 @@ export function resolveApiBaseURL(): string {
 const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
-  withCredentials: true,
+  // withCredentials: true,   // ← SUPPRIMÉ (pas nécessaire avec les tokens Bearer)
 });
 
 api.interceptors.request.use((config) => {

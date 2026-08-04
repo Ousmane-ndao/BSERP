@@ -3,14 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Lock, Building, Loader2 } from 'lucide-react';
-import { authApi, settingsApi } from '@/services/api';
+import { User, Lock, Building, Loader2, Coins } from 'lucide-react';
+import { authApi, destinationsApi, settingsApi } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCompanySettings } from '@/hooks/useQueries';
+import { APP_CURRENCY_LABEL } from '@/lib/currency';
+
+interface DestinationTarif {
+  id: number;
+  name: string;
+  region?: string | null;
+  montantTotal: string;
+}
 
 export default function Parametres() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, hasAccess } = useAuth();
+  const canManageTarifs = hasAccess(['directrice', 'informaticien']);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profil');
   const [message, setMessage] = useState('');
@@ -37,9 +46,32 @@ export default function Parametres() {
     { key: 'profil', label: 'Profil', icon: User },
     { key: 'securite', label: 'Sécurité', icon: Lock },
     { key: 'entreprise', label: 'Entreprise', icon: Building },
+    ...(canManageTarifs ? [{ key: 'tarifs', label: 'Tarifs destinations', icon: Coins }] : []),
   ];
 
   const { data: companyData, isLoading: companyLoading } = useCompanySettings();
+
+  const { data: tarifsData, isLoading: tarifsLoading } = useQuery({
+    queryKey: ['destinations_manage'],
+    queryFn: async () => {
+      const res = await destinationsApi.getManage();
+      return res.data as DestinationTarif[];
+    },
+    enabled: canManageTarifs,
+  });
+
+  const [tarifEdits, setTarifEdits] = useState<Record<number, string>>({});
+  const [savingTarifId, setSavingTarifId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (tarifsData) {
+      const map: Record<number, string> = {};
+      for (const d of tarifsData) {
+        map[d.id] = d.montantTotal;
+      }
+      setTarifEdits(map);
+    }
+  }, [tarifsData]);
 
   useEffect(() => {
     setProfileForm((prev) => ({
@@ -109,6 +141,22 @@ export default function Parametres() {
     }
   };
 
+  const saveTarif = async (id: number) => {
+    setSavingTarifId(id);
+    setError('');
+    setMessage('');
+    try {
+      await destinationsApi.update(id, { montant_total: Number(tarifEdits[id]) });
+      setMessage('Tarif mis à jour.');
+      void queryClient.invalidateQueries({ queryKey: ['destinations_manage'] });
+      void queryClient.invalidateQueries({ queryKey: ['destinations'] });
+    } catch {
+      setError('Impossible de mettre à jour ce tarif.');
+    } finally {
+      setSavingTarifId(null);
+    }
+  };
+
   return (
     <DashboardPageShell title="Paramètres" subtitle="Configuration du système" stripLabel="Compte et préférences">
       {message && <p className="text-sm text-emerald-600 font-medium">{message}</p>}
@@ -135,7 +183,7 @@ export default function Parametres() {
         ))}
       </div>
 
-      <div className="max-w-xl">
+      <div className={activeTab === 'tarifs' ? 'max-w-3xl' : 'max-w-xl'}>
         {activeTab === 'profil' && (
           <form className="dashboard-chart-card space-y-5" onSubmit={saveProfile}>
             <h2 className="font-semibold flex items-center gap-2 text-slate-800"><User size={18} className="text-emerald-500" />Informations personnelles</h2>
@@ -236,6 +284,71 @@ export default function Parametres() {
               Enregistrer
             </Button>
           </form>
+        )}
+
+        {activeTab === 'tarifs' && canManageTarifs && (
+          <div className="dashboard-chart-card space-y-5">
+            <h2 className="font-semibold flex items-center gap-2 text-slate-800">
+              <Coins size={18} className="text-emerald-500" />
+              Montants par destination ({APP_CURRENCY_LABEL})
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Ces montants servent de base lors de la création d&apos;un dossier. Défaut : 272 500 FCFA.
+            </p>
+            {tarifsLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des tarifs...
+              </div>
+            )}
+            {!tarifsLoading && (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="p-3 text-left font-medium">Destination</th>
+                      <th className="p-3 text-left font-medium">Région</th>
+                      <th className="p-3 text-left font-medium">Montant ({APP_CURRENCY_LABEL})</th>
+                      <th className="p-3 w-28" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(tarifsData ?? []).map((d) => (
+                      <tr key={d.id} className="border-b last:border-0">
+                        <td className="p-3 font-medium">{d.name}</td>
+                        <td className="p-3 text-muted-foreground">{d.region ?? '—'}</td>
+                        <td className="p-3">
+                          <Input
+                            type="number"
+                            min="0"
+                            className="max-w-[160px]"
+                            value={tarifEdits[d.id] ?? d.montantTotal}
+                            onChange={(e) =>
+                              setTarifEdits((prev) => ({ ...prev, [d.id]: e.target.value }))
+                            }
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={savingTarifId === d.id}
+                            onClick={() => void saveTarif(d.id)}
+                          >
+                            {savingTarifId === d.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              'Enregistrer'
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </DashboardPageShell>

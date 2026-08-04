@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Download,
@@ -27,6 +27,7 @@ import {
   ClientDocumentCard,
   type ClientDocumentSummary,
 } from '@/components/documents/ClientDocumentCard';
+import { R2FileUpload } from '@/components/documents/R2FileUpload';
 import { DocumentStatusBadge } from '@/components/documents/DocumentStatusBadge';
 import {
   DOCUMENT_STATUTS,
@@ -72,7 +73,6 @@ export default function Documents() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('clients');
   const [search, setSearch] = useState('');
@@ -85,13 +85,11 @@ export default function Documents() {
   const [filterDateTo, setFilterDateTo] = useState('');
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [uploadForm, setUploadForm] = useState({
     dossier_id: '',
     type_document: 'CNI ou Passeport' as string,
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dossiers, setDossiers] = useState<DossierOption[]>([]);
   const [dossiersLoaded, setDossiersLoaded] = useState(false);
 
@@ -164,22 +162,11 @@ export default function Documents() {
     void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
   };
 
-  const handleUpload = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!uploadForm.dossier_id || !selectedFile) return;
-    setUploading(true);
-    try {
-      await documentsApi.upload(uploadForm.dossier_id, selectedFile, uploadForm.type_document);
-      setDialogOpen(false);
-      setSelectedFile(null);
-      setUploadForm({ dossier_id: '', type_document: 'CNI ou Passeport' });
-      toast({ title: 'Document envoyé', description: 'Le document a été téléversé avec succès.' });
-      invalidate();
-    } catch (err: unknown) {
-      setError(await extractApiErrorMessage(err, "L'upload a échoué."));
-    } finally {
-      setUploading(false);
-    }
+  const handleUploadSuccess = () => {
+    setDialogOpen(false);
+    setUploadForm({ dossier_id: '', type_document: 'CNI ou Passeport' });
+    toast({ title: 'Document envoyé', description: 'Le fichier a été téléversé vers le stockage.' });
+    invalidate();
   };
 
   const handleDelete = async (id: string) => {
@@ -217,7 +204,7 @@ export default function Documents() {
           <DialogTitle>Uploader un document</DialogTitle>
           <DialogDescription>Choisissez le dossier, la catégorie et le fichier à envoyer.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleUpload} className="form-surface space-y-4 p-4">
+        <form className="form-surface space-y-4 p-4" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-1.5">
             <Label>Dossier</Label>
             <select
@@ -249,19 +236,14 @@ export default function Documents() {
               ))}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Fichier</Label>
-            <input
-              ref={fileInput}
-              type="file"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-              className="block w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground"
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={uploading}>
-            {uploading ? 'Upload...' : 'Envoyer'}
-          </Button>
+          <R2FileUpload
+            dossierId={uploadForm.dossier_id}
+            typeDocument={uploadForm.type_document}
+            disabled={!uploadForm.dossier_id}
+            onSuccess={handleUploadSuccess}
+            onError={(msg) => setError(msg)}
+            asForm={false}
+          />
         </form>
       </DialogContent>
     </Dialog>

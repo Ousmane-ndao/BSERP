@@ -6,30 +6,34 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const rawApiUrl = (env.VITE_API_URL ?? "").trim();
-  let proxyTarget = "http://127.0.0.1:8000";
 
-  // If VITE_API_URL is set (e.g. https://.../api), proxy to its origin in dev.
+  // Détermine la cible du proxy : utilise VITE_API_URL si définie, sinon http://localhost:8000
+  const rawApiUrl = (env.VITE_API_URL ?? "").trim();
+  const defaultTarget = "http://localhost:8000";
+  let proxyTarget = defaultTarget;
+
   if (rawApiUrl) {
     try {
+      // Extraire l'origine de l'URL (ex: http://localhost:8000)
       proxyTarget = new URL(rawApiUrl).origin;
     } catch {
-      // keep local default when URL is invalid
+      proxyTarget = defaultTarget;
     }
   }
 
   return {
     server: {
-    host: "::",
-    port: 8080,
-    hmr: {
-      overlay: false,
-    },
-      // En dev, les requêtes vers /api/* passent par le proxy Vite pour éviter le CORS navigateur.
+      host: "::", // écoute sur toutes les interfaces
+      port: 8080,
+      hmr: {
+        overlay: false,
+      },
+      // Proxy des requêtes /api vers le backend Laravel
       proxy: {
         "/api": {
           target: proxyTarget,
           changeOrigin: true,
+          rewrite: (path) => path, // garde le chemin intact
         },
       },
     },

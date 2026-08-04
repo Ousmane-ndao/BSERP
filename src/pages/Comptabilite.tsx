@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   accountingApi,
   downloadExport,
+  downloadPaymentsExport,
   expensesApi,
   invoicesApi,
   paymentsApi,
@@ -62,16 +63,20 @@ import {
   useExpenses,
   useInvoices,
   useClientsOptions,
+  useDestinations,
 } from '@/hooks/useQueries';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface PaymentItem {
   id: string;
   clientId: string;
+  dossierId?: string | null;
+  avanceNumero?: string | null;
   amount: string;
   currency: string;
   method: string;
   paidAt: string;
+  commentaire?: string | null;
   createdAt: string;
 }
 
@@ -164,6 +169,7 @@ export default function Comptabilite() {
   const { data: expensesRes, isLoading: expensesLoading } = useExpenses({ per_page: '20', page: String(pageExpenses) });
   const { data: invoicesRes, isLoading: invoicesLoading } = useInvoices({ per_page: '20', page: String(pageInvoices) });
   const { data: clientsRes } = useClientsOptions();
+  const { data: destinationsData } = useDestinations();
 
   const summary = useMemo(() => {
     if (!summaryRes) return null;
@@ -185,6 +191,14 @@ export default function Comptabilite() {
   const invoicesMeta = (invoicesRes?.meta ?? null) as PaginationMeta | null;
 
   const clients = (clientsRes?.data ?? []) as ClientItem[];
+  const destinations = (destinationsData ?? []) as { id: number; name: string }[];
+
+  const [paymentExportFilters, setPaymentExportFilters] = useState({
+    destination_id: '',
+    date_from: '',
+    date_to: '',
+    statut: '',
+  });
 
   // Mutations related state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -213,6 +227,8 @@ export default function Comptabilite() {
     amount: '',
     paid_at: '',
     method: 'Virement',
+    commentaire: '',
+    allow_overpayment: false,
   });
 
   const [expenseForm, setExpenseForm] = useState({
@@ -240,6 +256,8 @@ export default function Comptabilite() {
     amount: '',
     paid_at: '',
     method: 'Virement',
+    commentaire: '',
+    allow_overpayment: false,
   });
 
   const emptyExpenseForm = () => ({
@@ -324,8 +342,16 @@ export default function Comptabilite() {
       amount: String(p.amount),
       paid_at: p.paidAt || '',
       method: p.method,
+      commentaire: p.commentaire ?? '',
+      allow_overpayment: false,
     });
     setDialogOpen(true);
+  };
+
+  const formatDateFr = (iso: string) => {
+    if (!iso) return '—';
+    const [y, m, d] = iso.split('-');
+    return y && m && d ? `${d}/${m}/${y}` : iso;
   };
 
   const handleSubmitPayment = async (e: FormEvent) => {
@@ -338,6 +364,8 @@ export default function Comptabilite() {
         amount: Number(form.amount),
         paid_at: form.paid_at || null,
         method: form.method,
+        commentaire: form.commentaire || null,
+        allow_overpayment: form.allow_overpayment,
         currency: APP_CURRENCY_CODE,
       };
       if (dialogMode === 'create') {
@@ -667,14 +695,64 @@ export default function Comptabilite() {
         </>
       )}
       {tab === 'payments' && (
-        <Button
-          type="button"
-          className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90"
-          onClick={openCreatePayment}
-        >
-          <Plus size={16} className="mr-2" />
-          Nouveau paiement
-        </Button>
+        <>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            value={paymentExportFilters.destination_id}
+            onChange={(e) => setPaymentExportFilters((f) => ({ ...f, destination_id: e.target.value }))}
+          >
+            <option value="">Toutes destinations</option>
+            {destinations.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            value={paymentExportFilters.statut}
+            onChange={(e) => setPaymentExportFilters((f) => ({ ...f, statut: e.target.value }))}
+          >
+            <option value="">Tous statuts</option>
+            <option value="Payé">Payé</option>
+            <option value="Partiel">Partiel</option>
+            <option value="En attente">En attente</option>
+            <option value="Trop-perçu">Trop-perçu</option>
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-slate-200 bg-white"
+            onClick={() => void downloadPaymentsExport('csv', paymentExportFilters)}
+          >
+            CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-slate-200 bg-white"
+            onClick={() => void downloadPaymentsExport('excel', paymentExportFilters)}
+          >
+            Excel
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-slate-200 bg-white"
+            onClick={() => void downloadPaymentsExport('pdf', paymentExportFilters)}
+          >
+            PDF
+          </Button>
+          <Button
+            type="button"
+            className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90"
+            onClick={openCreatePayment}
+          >
+            <Plus size={16} className="mr-2" />
+            Nouveau paiement
+          </Button>
+        </>
       )}
       {tab === 'expenses' && (
         <Button
@@ -840,32 +918,38 @@ export default function Comptabilite() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
+                  <th className="px-4 py-3 font-semibold">Acompte</th>
                   <th className="px-4 py-3 font-semibold">Date</th>
                   <th className="px-4 py-3 font-semibold">Client</th>
                   <th className="px-4 py-3 font-semibold">Montant</th>
                   <th className="px-4 py-3 font-semibold">Méthode</th>
+                  <th className="px-4 py-3 font-semibold">Commentaire</th>
                   <th className="px-4 py-3 w-20" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {paymentsLoading && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground italic">Chargement...</td>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground italic">Chargement...</td>
                   </tr>
                 )}
                 {!paymentsLoading && payments.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground italic">Aucun paiement trouvé.</td>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground italic">Aucun paiement trouvé.</td>
                   </tr>
                 )}
                 {!paymentsLoading && payments.map((p) => (
                   <tr key={p.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 tabular-nums">{p.paidAt}</td>
+                    <td className="px-4 py-3 font-medium">{p.avanceNumero ?? '—'}</td>
+                    <td className="px-4 py-3 tabular-nums">{formatDateFr(p.paidAt)}</td>
                     <td className="px-4 py-3 font-medium">{clientNames.get(p.clientId) ?? 'Client inconnu'}</td>
                     <td className="px-4 py-3 font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                       {formatMoneyWithLabel(Number(p.amount))}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.method}</td>
+                    <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate" title={p.commentaire ?? undefined}>
+                      {p.commentaire || '—'}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => openEditPayment(p)}>
@@ -1134,9 +1218,28 @@ export default function Comptabilite() {
                 <option value="Virement">Virement</option>
                 <option value="Espèces">Espèces</option>
                 <option value="Chèque">Chèque</option>
+                <option value="Mobile Money">Mobile Money</option>
                 <option value="Wave">Wave</option>
                 <option value="Orange Money">Orange Money</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Commentaire</Label>
+              <Input
+                value={form.commentaire}
+                onChange={(e) => setForm({ ...form, commentaire: e.target.value })}
+                placeholder="Ex. Avance 1 — dépôt initial"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="payment_allow_overpayment"
+                checked={form.allow_overpayment}
+                onCheckedChange={(v) => setForm({ ...form, allow_overpayment: v === true })}
+              />
+              <Label htmlFor="payment_allow_overpayment" className="font-normal cursor-pointer">
+                Autoriser trop-perçu
+              </Label>
             </div>
             <Button type="submit" className="w-full" disabled={saving}>
               {saving ? 'Enregistrement...' : (dialogMode === 'create' ? 'Enregistrer' : 'Mettre à jour')}
