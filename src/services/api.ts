@@ -58,8 +58,8 @@ export function resolveApiBaseURL(): string {
 
 const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
-  // withCredentials: true,   // ← SUPPRIMÉ (pas nécessaire avec les tokens Bearer)
+  timeout: 300000, // 🔥 CORRIGÉ : 5 minutes (300 000 ms)
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -229,7 +229,7 @@ export const documentsApi = {
       formData.append('type_document', typeDocument);
     }
     return api.post('/documents', formData, {
-      timeout: 120_000,
+      timeout: 300000, // 🔥 CORRIGÉ : 5 minutes pour l'upload (300 000 ms)
     });
   },
   update: async (id: string, data: Record<string, unknown>, file?: File) => {
@@ -242,7 +242,7 @@ export const documentsApi = {
       }
       formData.append('file', file);
       formData.append('_method', 'PATCH');
-      return api.post(`/documents/${id}`, formData, { timeout: 120_000 });
+      return api.post(`/documents/${id}`, formData, { timeout: 300000 });
     }
     try {
       return await api.patch(`/documents/${id}`, data);
@@ -258,7 +258,7 @@ export const documentsApi = {
   download: (id: string) =>
     api.get(`/documents/${id}/download`, {
       responseType: 'blob',
-      timeout: 120_000,
+      timeout: 300000,
     }),
   getSignedUrl: (id: string, minutes = 30) =>
     api.get(`/documents/${id}/signed-url`, { params: { minutes: String(minutes) } }),
@@ -388,6 +388,10 @@ export async function extractApiErrorMessage(err: unknown, fallback: string): Pr
     }
     if (!err.response) {
       const isUpload = err.config?.data instanceof FormData;
+      // 🔥 Détection améliorée pour les timeouts
+      if (err.code === 'ECONNABORTED') {
+        return "Le serveur a mis trop de temps à répondre (timeout). Réessayez après avoir rafraîchi la page.";
+      }
       if (isUpload) {
         return "Échec de connexion pendant l'upload (réseau, navigateur ou extension). Essayez une fenêtre privée sans extensions, attendez 1 min si le serveur était en veille, puis réessayez.";
       }
@@ -463,6 +467,5 @@ export const settingsApi = {
   getCompany: () => api.get('/settings/company'),
   updateCompany: (data: Record<string, unknown>) => api.put('/settings/company', data),
 };
-
 
 export default api;
