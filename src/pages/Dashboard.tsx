@@ -61,6 +61,12 @@ interface DashboardStats {
   dossiers_termines?: number;
   dossiers_incomplets?: number;
   dossiers_acceptes?: number;
+  acceptations_repartition?: Array<{
+    key: string;
+    label: string;
+    total: number;
+    percentage: number;
+  }>;
   dossiers_refuses?: number;
   dossiers_en_attente_decision?: number;
   visas_obtenus?: number;
@@ -70,6 +76,7 @@ interface DashboardStats {
   documents_manquants?: number;
   paiements_recents?: number;
   total_revenus?: number;
+  montant_accompagnement?: number;
   paiements_en_attente?: number;
   pending_invoices?: number;
   dossiers_par_statut?: Record<string, number>;
@@ -134,6 +141,7 @@ export default function Dashboard() {
     const pendingPay = Number(stats.paiements_en_attente ?? 0);
 
     const totalRevenue = Number(stats.total_revenus ?? 0);
+    const montantAccompagnement = Number(stats.montant_accompagnement ?? 0);
     const paiementsRecents = Number(stats.paiements_recents ?? 0);
 
     const list: DashboardMetricSpec[] = [
@@ -155,6 +163,12 @@ export default function Dashboard() {
 
     if (canLoadPayments) {
       list.push(
+        {
+          label: 'Accompagnement par dossier',
+          value: formatMoneyWithLabel(montantAccompagnement),
+          icon: DollarSign,
+          ...DASH_METRIC_STYLES.green,
+        },
         {
           label: 'Chiffre d’affaires',
           value: formatMoneyWithLabel(totalRevenue),
@@ -235,6 +249,28 @@ export default function Dashboard() {
         {metrics.map((m) => (
           <DashboardMetricCard key={m.label} {...m} loading={loading} />
         ))}
+      </div>
+
+      <div className="dashboard-chart-card">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-sm font-semibold text-slate-800">Répartition des acceptations</h2>
+          <span className="text-lg font-bold tabular-nums text-slate-900">
+            {Number(stats?.dossiers_acceptes ?? 0)}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {(stats?.acceptations_repartition ?? []).map((item) => (
+            <div key={item.key} className="rounded-md border border-slate-100 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-600">{item.label}</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-slate-900">
+                {Number(item.total)}
+                <span className="ml-2 text-xs font-medium text-slate-500">
+                  {Number(item.percentage).toFixed(1).replace('.', ',')}%
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

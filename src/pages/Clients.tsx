@@ -1,11 +1,11 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, GraduationCap, Loader2, Wallet } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, ChevronLeft, ChevronRight, GraduationCap, Loader2, Wallet, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
-import { clientsApi, extractApiErrorMessage } from '@/services/api';
+import { clientsApi, downloadClientsPdf, extractApiErrorMessage } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { DASH_GREEN } from '@/lib/dashboardTheme';
 import { useToast } from '@/hooks/use-toast';
@@ -62,6 +62,7 @@ export default function Clients() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState(initialForm);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -84,6 +85,25 @@ export default function Clients() {
   const meta = (clientsData?.meta ?? null) as PaginationMeta | null;
   const destinations = (destinationsData ?? []) as Destination[];
   const loading = loadingClients || loadingDestinations;
+
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      await downloadClientsPdf({
+        search: search.trim() || undefined,
+        destination_id: filterDestination || undefined,
+      });
+      toast({ title: 'Export PDF généré', description: 'Tous les clients correspondant aux filtres ont été exportés.' });
+    } catch (err) {
+      toast({
+        title: 'Erreur',
+        description: await extractApiErrorMessage(err, "L'export PDF a échoué."),
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openCreate = () => {
     setEditingClientId(null);
@@ -201,13 +221,18 @@ export default function Clients() {
       subtitle={`${meta?.total ?? clients.length} clients enregistrés`}
       stripLabel="Annuaire et suivi clients"
       headerActions={
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90" onClick={openCreate}>
-              <Plus size={16} className="mr-2" />
-              Nouveau client
-            </Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => void handleExportPdf()} disabled={exporting}>
+            {exporting ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Download size={16} className="mr-2" />}
+            {exporting ? 'Export...' : 'Exporter PDF'}
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90" onClick={openCreate}>
+                <Plus size={16} className="mr-2" />
+                Nouveau client
+              </Button>
+            </DialogTrigger>
           <DialogContent className="flex max-h-[min(92vh,720px)] w-[calc(100vw-1.5rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
             <DialogHeader className="shrink-0 border-b border-border/80 bg-muted/30 px-6 py-4 text-left">
               <DialogTitle>{editingClientId ? 'Modifier client' : 'Ajouter un client'}</DialogTitle>
@@ -285,7 +310,8 @@ export default function Clients() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       }
     >
       {clientsError && <p className="text-sm text-destructive">Impossible de charger les clients.</p>}

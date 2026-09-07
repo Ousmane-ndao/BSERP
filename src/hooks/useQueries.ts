@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   dashboardApi,
   clientsApi,
@@ -69,8 +69,8 @@ export const useDossiers = (params?: Record<string, string>) => {
       const res = await dossiersApi.getAll(params);
       return res.data;
     },
-    keepPreviousData: true,
-    staleTime: 15_000,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 2,
   });

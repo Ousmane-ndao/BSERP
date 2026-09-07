@@ -148,23 +148,21 @@ export default function Dossiers() {
   const queryClient = useQueryClient();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1);
+  const clientIdFilter = searchParams.get('client')?.trim() || '';
 
-  const setPage = useCallback(
-    (value: number | ((prev: number) => number)) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          const cur = Math.max(1, parseInt(prev.get('page') || '1', 10) || 1);
-          const val = typeof value === 'function' ? value(cur) : value;
-          next.set('page', String(Math.max(1, val)));
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const changePage = useCallback((nextPage: number) => {
+    const safePage = Math.max(1, Math.trunc(nextPage));
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (safePage <= 1) {
+        next.delete('page');
+      } else {
+        next.set('page', String(safePage));
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -199,13 +197,17 @@ export default function Dossiers() {
       filtersMounted.current = true;
       return;
     }
-    setPage(1);
-  }, [debouncedSearch, filterStatut, filterDestinationGroup, filterDateFrom, filterDateTo, setPage]);
+    // Do not depend on changePage: its identity can change when the URL updates,
+    // which would reset the user to page 1 after every "next" click.
+    changePage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const listParams = useMemo(
     () => ({
       per_page: '10',
       page: String(page),
+      ...(clientIdFilter ? { client_id: clientIdFilter } : {}),
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(filterStatut ? { statut: filterStatut } : {}),
       ...(filterDestinationGroup ? { destination_group: filterDestinationGroup } : {}),
@@ -216,6 +218,7 @@ export default function Dossiers() {
     }),
     [
       page,
+      clientIdFilter,
       debouncedSearch,
       filterStatut,
       filterDestinationGroup,
@@ -227,10 +230,26 @@ export default function Dossiers() {
   );
 
   // Utilisation de React Query
-  const { data: dossiersData, isLoading: loading, isError: dossiersError } = useDossiers(listParams);
+  const { data: dossiersData, isLoading: loading, isFetching, isPlaceholderData, isError: dossiersError } = useDossiers(listParams);
 
   const dossiers = (dossiersData?.data ?? []) as DossierListItem[];
   const meta = (dossiersData?.meta ?? null) as PaginationMeta | null;
+
+  useEffect(() => {
+    const last = Math.max(1, Number(meta?.last_page) || 1);
+    const neighbors = [page - 1, page + 1].filter((p) => p >= 1 && p <= last && p !== page);
+    for (const neighbor of neighbors) {
+      const params = { ...listParams, page: String(neighbor) };
+      void queryClient.prefetchQuery({
+        queryKey: ['dossiers', params],
+        queryFn: async () => {
+          const res = await dossiersApi.getAll(params);
+          return res.data;
+        },
+        staleTime: 60_000,
+      });
+    }
+  }, [listParams, meta?.last_page, page, queryClient]);
 
   const exportFilters = useMemo(
     () => ({
@@ -262,6 +281,7 @@ export default function Dossiers() {
     () => {
       const items: string[] = [];
       if (debouncedSearch) items.push(`Recherche : "${debouncedSearch}"`);
+      if (clientIdFilter) items.push(`Client #${clientIdFilter}`);
       if (filterStatut) items.push(`Statut : ${filterStatut}`);
       if (filterDestinationGroup) {
         const label = DESTINATION_GROUPS.find((d) => d.value === filterDestinationGroup)?.label;
@@ -276,7 +296,7 @@ export default function Dossiers() {
       }
       return items;
     },
-    [debouncedSearch, filterStatut, filterDestinationGroup, filterDateFrom, filterDateTo],
+    [debouncedSearch, clientIdFilter, filterStatut, filterDestinationGroup, filterDateFrom, filterDateTo],
   );
 
   const loadClients = useCallback(async () => {
@@ -302,8 +322,8 @@ export default function Dossiers() {
     setFilterDestinationGroup('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    setPage(1);
-  }, [setPage]);
+    changePage(1);
+  }, [changePage]);
 
   const openDetail = async (row: DossierListItem) => {
     setDetailLoading(true);
@@ -401,7 +421,7 @@ export default function Dossiers() {
       setSortBy(col);
       setSortDir(col === 'reference' || col === 'id' ? 'desc' : 'asc');
     }
-    setPage(1);
+    changePage(1);
   };
 
   const handleExport = async (format: 'csv' | 'xlsx' | 'pdf') => {
@@ -416,20 +436,12 @@ export default function Dossiers() {
     }
   };
 
-  const lastPage = meta?.last_page ?? 1;
-  const total = meta?.total ?? 0;
+  const lastPage = Math.max(1, Number(meta?.last_page) || 1);
+  const total = Number(meta?.total) || 0;
   const from = meta?.from ?? (total === 0 ? 0 : (page - 1) * 10 + 1);
   const to = meta?.to ?? Math.min(page * 10, total);
-
-  const pageNumbers = useMemo(() => {
-    const cur = meta?.current_page ?? page;
-    const last = Math.max(1, lastPage);
-    const windowStart = Math.max(1, cur - 2);
-    const windowEnd = Math.min(last, cur + 2);
-    const nums: number[] = [];
-    for (let i = windowStart; i <= windowEnd; i++) nums.push(i);
-    return nums;
-  }, [meta?.current_page, page, lastPage]);
+  const currentPage = Number(meta?.current_page) || page;
+  const showPagination = lastPage > 1 || currentPage > 1;
 
   return (
     <DashboardPageShell
@@ -504,7 +516,7 @@ export default function Dossiers() {
               value={filterStatut}
               onChange={(e) => {
                 setFilterStatut(e.target.value);
-                setPage(1);
+                changePage(1);
               }}
             >
               <option value="">Tous</option>
@@ -522,7 +534,7 @@ export default function Dossiers() {
               value={filterDestinationGroup}
               onChange={(e) => {
                 setFilterDestinationGroup(e.target.value);
-                setPage(1);
+                changePage(1);
               }}
             >
               {DESTINATION_GROUPS.map((d) => (
@@ -540,7 +552,7 @@ export default function Dossiers() {
               value={filterDateFrom}
               onChange={(e) => {
                 setFilterDateFrom(e.target.value);
-                setPage(1);
+                changePage(1);
               }}
             />
           </div>
@@ -552,7 +564,7 @@ export default function Dossiers() {
               value={filterDateTo}
               onChange={(e) => {
                 setFilterDateTo(e.target.value);
-                setPage(1);
+                changePage(1);
               }}
             />
           </div>
@@ -675,7 +687,7 @@ export default function Dossiers() {
             : `Affichage ${from}–${to} sur ${total} dossier${total > 1 ? 's' : ''}`}
       </p>
 
-      <div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm">
+      <div className={`overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm ${isPlaceholderData && isFetching ? 'opacity-70' : ''}`}>
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
@@ -779,43 +791,36 @@ export default function Dossiers() {
         </table>
       </div>
 
-      {lastPage > 1 && (
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Précédent
-          </Button>
-          <div className="flex flex-wrap items-center justify-center gap-1">
-            {pageNumbers.map((n) => (
-              <Button
-                key={n}
-                type="button"
-                variant={n === (meta?.current_page ?? page) ? 'default' : 'outline'}
-                size="sm"
-                className="min-w-9"
-                disabled={loading}
-                onClick={() => setPage(n)}
-              >
-                {n}
-              </Button>
-            ))}
+      {showPagination && (
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-border/70 pt-4 sm:flex-row">
+          <p className="text-sm font-medium text-foreground">
+            Page {currentPage} sur {lastPage} — {total.toLocaleString()} dossiers
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Page précédente"
+              disabled={currentPage <= 1}
+              onClick={() => changePage(currentPage - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-16 text-center text-sm font-semibold tabular-nums" aria-live="polite">
+              {currentPage} / {lastPage}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Page suivante"
+              disabled={currentPage >= lastPage}
+              onClick={() => changePage(currentPage + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={page >= lastPage || loading}
-            onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-          >
-            Suivant
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
         </div>
       )}
 

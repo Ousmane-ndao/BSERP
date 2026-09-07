@@ -3,6 +3,8 @@ import { LOGIN_ROUTE } from '@/lib/routes';
 
 /** Backend Render en production (CORS configuré pour bserp.vercel.app). */
 const PROD_RENDER_API = 'https://bserp-backend-5vc2.onrender.com/api';
+const AUTH_TOKEN_KEY = 'bserp_token';
+const LEGACY_AUTH_TOKEN_KEY = 'token';
 
 /** Base URL API : toujours se terminer par `/api` (routes Laravel). */
 export function resolveApiBaseURL(): string {
@@ -65,8 +67,11 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   // Recalcul à chaque requête : évite une baseURL Render figée au chargement du bundle.
   config.baseURL = resolveApiBaseURL();
-  const token = localStorage.getItem('bserp_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = localStorage.getItem(AUTH_TOKEN_KEY) ?? localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   // For multipart uploads, let the browser set Content-Type with boundary.
   if (config.data instanceof FormData) {
     const h = config.headers as AxiosHeaders | undefined;
@@ -85,7 +90,8 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = error.config?.url;
     if (status === 401) {
-      localStorage.removeItem('bserp_token');
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
       localStorage.removeItem('bserp_user');
       window.location.href = LOGIN_ROUTE;
       return Promise.reject(error);
@@ -453,6 +459,18 @@ export async function downloadDossiersExport(
   const q = params.toString();
   const path = `/exports/dossiers.${format}${q ? `?${q}` : ''}`;
   await downloadExport(path, `dossiers.${format}`);
+}
+
+/** Export PDF de tous les clients correspondant aux filtres optionnels. */
+export async function downloadClientsPdf(
+  filters: Record<string, string | undefined> = {},
+): Promise<void> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && String(value).trim() !== '') params.set(key, String(value).trim());
+  }
+  const query = params.toString();
+  await downloadExport(`/exports/clients.pdf${query ? `?${query}` : ''}`, 'clients.pdf');
 }
 
 // Employees

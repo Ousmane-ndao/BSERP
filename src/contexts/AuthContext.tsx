@@ -71,9 +71,20 @@ function normalizeRole(input: unknown): Role {
   return map[value] ?? 'accueil';
 }
 
+function unwrapResource(payload: unknown): unknown {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const inner = (payload as { data: unknown }).data;
+    if (inner && typeof inner === 'object' && ('email' in inner || 'name' in inner)) {
+      return inner;
+    }
+  }
+  return payload;
+}
+
 function normalizeUser(input: unknown): User | null {
   if (!input || typeof input !== 'object') return null;
-  const raw = input as Record<string, unknown>;
+  const raw = unwrapResource(input) as Record<string, unknown>;
+  if (!raw || typeof raw !== 'object') return null;
   const name = String(raw.name ?? '').trim();
   const email = String(raw.email ?? '').trim();
 
@@ -116,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     localStorage.setItem('bserp_token', token);
+    localStorage.removeItem('token');
     localStorage.setItem('bserp_user', JSON.stringify(apiUser));
     setUser(apiUser);
   }, []);
@@ -127,18 +139,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Nettoyer la session locale même si l'API échoue.
     } finally {
       localStorage.removeItem('bserp_token');
+      localStorage.removeItem('token');
       localStorage.removeItem('bserp_user');
       setUser(null);
     }
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('bserp_token');
+    const token = localStorage.getItem('bserp_token') ?? localStorage.getItem('token');
     if (!token) return;
+
+    if (!localStorage.getItem('bserp_token')) {
+      localStorage.setItem('bserp_token', token);
+      localStorage.removeItem('token');
+    }
 
     void refreshUser()
       .catch(() => {
         localStorage.removeItem('bserp_token');
+        localStorage.removeItem('token');
         localStorage.removeItem('bserp_user');
         setUser(null);
       });

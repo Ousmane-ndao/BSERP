@@ -293,7 +293,7 @@ export default function Parametres() {
               Montants par destination ({APP_CURRENCY_LABEL})
             </h2>
             <p className="text-sm text-muted-foreground">
-              Ces montants servent de base lors de la création d&apos;un dossier. Défaut : 272 500 FCFA.
+              Ces montants servent de base lors de la création d&apos;un dossier. Défaut : 137 500 FCFA.
             </p>
             {tarifsLoading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
