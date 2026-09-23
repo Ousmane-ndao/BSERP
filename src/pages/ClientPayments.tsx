@@ -179,6 +179,8 @@ export default function ClientPayments() {
     void queryClient.invalidateQueries({ queryKey: ['payments'] });
     void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
     void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
   };
 
   const openCreate = () => {

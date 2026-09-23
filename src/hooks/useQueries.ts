@@ -24,11 +24,27 @@ export const useDashboardStats = () => {
       const res = await dashboardApi.getStats();
       return res.data;
     },
-    // Réessayer légèrement en cas d'échec réseau/500 (2 tentatives), et ne pas refetch on focus
-    retry: 2,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-    retryOnMount: true,
+    retry: 1,
+    retryDelay: 800,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+  });
+};
+
+export const useDashboardSoldeRestant = (params?: Record<string, string>, enabled = true) => {
+  return useQuery({
+    queryKey: ['dashboard_solde_restant', params],
+    queryFn: async () => {
+      const res = await dashboardApi.getSoldeRestant(params);
+      return res.data;
+    },
+    enabled,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -39,6 +55,9 @@ export const useClients = (params?: Record<string, string>) => {
       const res = await clientsApi.getAll(params);
       return res.data;
     },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -93,6 +112,9 @@ export const useAccountingSummary = () => {
       const res = await accountingApi.summary();
       return res.data;
     },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -128,8 +150,10 @@ export const useDocumentsClientsSummary = (params?: Record<string, string>) => {
       const res = await documentsApi.getClientsSummary(params);
       return res.data;
     },
-    retry: 2,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    retry: 1,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
   });
 };
 

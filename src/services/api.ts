@@ -149,7 +149,9 @@ async function retryRequest<T>(fn: () => Promise<T>, retries = 3, baseDelay = 10
 }
 
 export const dashboardApi = {
-  getStats: () => retryRequest(() => api.get('/dashboard'), 3, 1200),
+  getStats: () => retryRequest(() => api.get('/dashboard'), 1, 800),
+  getSoldeRestant: (params?: Record<string, string>) =>
+    api.get('/dashboard/solde-restant', { params }),
 };
 
 // Clients

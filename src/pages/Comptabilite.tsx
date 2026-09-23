@@ -53,6 +53,7 @@ import {
 } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { DashboardMetricCard, type DashboardMetricSpec } from '@/components/dashboard/DashboardMetricCard';
+import { DashboardSoldeRestant } from '@/components/dashboard/DashboardSoldeRestant';
 import { DASH_GREEN, DASH_CORAL, DASH_METRIC_STYLES, DASH_PURPLE, DASH_BLUE, DASH_ORANGE, DASH_AMBER } from '@/lib/dashboardTheme';
 import { APP_CURRENCY_CODE, APP_CURRENCY_LABEL, formatMoneyWithLabel } from '@/lib/currency';
 import { useToast } from '@/hooks/use-toast';
@@ -164,7 +165,7 @@ export default function Comptabilite() {
   const [pageInvoices, setPageInvoices] = useState(1);
 
   // Queries
-  const { data: summaryRes, isLoading: summaryLoading } = useAccountingSummary();
+  const { data: summaryRes, isPending: summaryLoading } = useAccountingSummary();
   const { data: paymentsRes, isLoading: paymentsLoading } = usePayments({ per_page: '20', page: String(pagePayments) });
   const { data: expensesRes, isLoading: expensesLoading } = useExpenses({ per_page: '20', page: String(pageExpenses) });
   const { data: invoicesRes, isLoading: invoicesLoading } = useInvoices({ per_page: '20', page: String(pageInvoices) });
@@ -380,6 +381,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['payments'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError(dialogMode === 'create' ? "Impossible d'enregistrer le paiement." : 'Impossible de mettre à jour le paiement.');
     } finally {
@@ -396,6 +398,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['payments'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError('Impossible de supprimer le paiement.');
     } finally {
@@ -446,6 +449,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError(
         expenseDialogMode === 'create' ? "Impossible d'enregistrer la dépense." : 'Impossible de mettre à jour la dépense.'
@@ -464,6 +468,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError('Impossible de supprimer la dépense.');
     } finally {
@@ -600,6 +605,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError(
         invoiceDialogMode === 'create' ? "Impossible d'enregistrer la facture." : 'Impossible de mettre à jour la facture.'
@@ -618,6 +624,7 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
     } catch {
       setError('Impossible de supprimer la facture.');
     } finally {
@@ -857,6 +864,8 @@ export default function Comptabilite() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 outline-none">
+          <DashboardSoldeRestant />
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((s, i) => (
               <DashboardMetricCard key={i} {...s} loading={summaryLoading} />

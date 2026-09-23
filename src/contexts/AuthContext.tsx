@@ -37,7 +37,7 @@ export const ROLE_ACCESS: Record<Role, string[]> = {
   responsable_admin: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel', 'mon_dossier'],
   conseillere_pedagogique: ['dashboard', 'clients', 'dossiers', 'documents', 'mon_dossier'],
   informaticien: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'personnel', 'mon_dossier'],
-  comptable: ['dashboard', 'clients', 'comptabilite', 'mon_dossier'],
+  comptable: ['dashboard', 'clients', 'dossiers', 'documents', 'comptabilite', 'mon_dossier'],
   commercial: ['dashboard', 'clients', 'dossiers', 'mon_dossier'],
   accueil: ['dashboard', 'clients', 'dossiers', 'mon_dossier'],
 };

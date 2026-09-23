@@ -57,6 +57,7 @@ const initialForm = {
 
 export default function Clients() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterDestination, setFilterDestination] = useState('');
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,13 +71,22 @@ export default function Clients() {
   const { hasAccess } = useAuth();
   const canViewPayments = hasAccess(['directrice', 'responsable_admin', 'comptable', 'informaticien']);
 
-  // Utilisation de React Query pour les clients
-  const { data: clientsData, isLoading: loadingClients, isError: clientsError } = useClients({
-    per_page: '20',
-    page: String(page),
-    ...(search.trim() ? { search: search.trim() } : {}),
-    ...(filterDestination ? { destination_id: filterDestination } : {}),
-  });
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  const listParams = useMemo(
+    () => ({
+      per_page: '20',
+      page: String(page),
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...(filterDestination ? { destination_id: filterDestination } : {}),
+    }),
+    [page, debouncedSearch, filterDestination],
+  );
+
+  const { data: clientsData, isPending: loadingClients, isPlaceholderData, isSuccess: clientsSuccess, isError: clientsError } = useClients(listParams);
 
   // Utilisation de React Query pour les destinations
   const { data: destinationsData, isLoading: loadingDestinations } = useDestinations();
@@ -84,13 +94,13 @@ export default function Clients() {
   const clients = (clientsData?.data ?? []) as Client[];
   const meta = (clientsData?.meta ?? null) as PaginationMeta | null;
   const destinations = (destinationsData ?? []) as Destination[];
-  const loading = loadingClients || loadingDestinations;
+  const loading = (loadingClients && !clientsData) || loadingDestinations;
 
   const handleExportPdf = async () => {
     setExporting(true);
     try {
       await downloadClientsPdf({
-        search: search.trim() || undefined,
+        search: debouncedSearch || undefined,
         destination_id: filterDestination || undefined,
       });
       toast({ title: 'Export PDF généré', description: 'Tous les clients correspondant aux filtres ont été exportés.' });
@@ -183,7 +193,23 @@ export default function Clients() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterDestination]);
+  }, [debouncedSearch, filterDestination]);
+
+  useEffect(() => {
+    if (!clientsSuccess || isPlaceholderData) return;
+    const last = Math.max(1, Number(meta?.last_page) || 1);
+    const nextPage = page + 1;
+    if (nextPage > last) return;
+    const params = { ...listParams, page: String(nextPage) };
+    void queryClient.prefetchQuery({
+      queryKey: ['clients', params],
+      queryFn: async () => {
+        const res = await clientsApi.getAll(params);
+        return res.data;
+      },
+      staleTime: 30_000,
+    });
+  }, [clientsSuccess, isPlaceholderData, listParams, meta?.last_page, page, queryClient]);
 
   const destinationOptions = useMemo(
     () => destinations.map((d) => ({ id: String(d.id), name: d.name })),

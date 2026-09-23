@@ -165,7 +165,9 @@ export default function Documents() {
   const handleUploadSuccess = () => {
     setDialogOpen(false);
     setUploadForm({ dossier_id: '', type_document: 'CNI ou Passeport' });
-    toast({ title: 'Document envoyé', description: 'Le fichier a été téléversé vers le stockage.' });
+    setViewMode('global');
+    setPage(1);
+    toast({ title: 'Document envoyé', description: 'Le fichier a été enregistré et apparaît dans la liste.' });
     invalidate();
   };
 

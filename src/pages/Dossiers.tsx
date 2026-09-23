@@ -106,10 +106,11 @@ const ROLES_CREATE_DOSSIER: Role[] = [
   'responsable_admin',
   'conseillere_pedagogique',
   'informaticien',
+  'comptable',
   'commercial',
 ];
 const ROLES_EDIT_DOSSIER: Role[] = ROLES_CREATE_DOSSIER;
-const ROLES_DELETE_DOSSIER: Role[] = ['directrice', 'responsable_admin', 'informaticien'];
+const ROLES_DELETE_DOSSIER: Role[] = ['directrice', 'responsable_admin', 'informaticien', 'comptable'];
 
 function SortHeader({
   label,
@@ -230,26 +231,26 @@ export default function Dossiers() {
   );
 
   // Utilisation de React Query
-  const { data: dossiersData, isLoading: loading, isFetching, isPlaceholderData, isError: dossiersError } = useDossiers(listParams);
+  const { data: dossiersData, isLoading: loading, isFetching, isPlaceholderData, isSuccess: dossiersSuccess, isError: dossiersError } = useDossiers(listParams);
 
   const dossiers = (dossiersData?.data ?? []) as DossierListItem[];
   const meta = (dossiersData?.meta ?? null) as PaginationMeta | null;
 
   useEffect(() => {
+    if (!dossiersSuccess || isPlaceholderData || isFetching) return;
     const last = Math.max(1, Number(meta?.last_page) || 1);
-    const neighbors = [page - 1, page + 1].filter((p) => p >= 1 && p <= last && p !== page);
-    for (const neighbor of neighbors) {
-      const params = { ...listParams, page: String(neighbor) };
-      void queryClient.prefetchQuery({
-        queryKey: ['dossiers', params],
-        queryFn: async () => {
-          const res = await dossiersApi.getAll(params);
-          return res.data;
-        },
-        staleTime: 60_000,
-      });
-    }
-  }, [listParams, meta?.last_page, page, queryClient]);
+    const nextPage = page + 1;
+    if (nextPage > last) return;
+    const params = { ...listParams, page: String(nextPage) };
+    void queryClient.prefetchQuery({
+      queryKey: ['dossiers', params],
+      queryFn: async () => {
+        const res = await dossiersApi.getAll(params);
+        return res.data;
+      },
+      staleTime: 60_000,
+    });
+  }, [dossiersSuccess, isFetching, isPlaceholderData, listParams, meta?.last_page, page, queryClient]);
 
   const exportFilters = useMemo(
     () => ({

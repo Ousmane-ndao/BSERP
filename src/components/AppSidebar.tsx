@@ -11,6 +11,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { DualBrandLockup } from '@/components/brand/DualBrandLockup';
 import { useAuth, ROLE_ACCESS } from '@/contexts/AuthContext';
 import { useState } from 'react';
 
@@ -43,15 +44,13 @@ export default function AppSidebar() {
       }`}
     >
       {/* Header */}
-      <div className="flex h-20 items-center justify-between border-b border-sidebar-border bg-[#12202e] px-4">
+      <div className="flex min-h-[5.5rem] items-center justify-between border-b border-sidebar-border bg-[#12202e] px-4 py-2">
         {!collapsed && (
-          <div className="flex items-center gap-3">
-            <img
-              src="/brand-bs-consulting-dark.png"
-              alt="BS-Consulting"
-              className="h-10 w-auto object-contain"
-            />
-            <span className="text-xl font-bold tracking-tight">BSERP</span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <DualBrandLockup variant="light" size="sm" />
+            <span className="truncate text-xs font-semibold tracking-tight text-white/90">
+              bserviceconsulting
+            </span>
           </div>
         )}
         <button

@@ -1,4 +1,4 @@
-import { ChevronRight, FolderOpen, User } from 'lucide-react';
+ import { ChevronRight, FolderOpen, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DOCUMENT_CATEGORY_META } from '@/constants/documentStatus';
 

@@ -46,6 +46,7 @@ const EDIT_ROLES: Role[] = [
   'responsable_admin',
   'conseillere_pedagogique',
   'informaticien',
+  'comptable',
   'commercial',
   'accueil',
 ];

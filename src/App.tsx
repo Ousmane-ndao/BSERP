@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
+import { StatsPrefetch } from "@/components/StatsPrefetch";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Clients from "@/pages/Clients";
@@ -37,6 +38,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
+        <StatsPrefetch />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path={LOGIN_ROUTE} element={<Login />} />

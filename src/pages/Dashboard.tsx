@@ -92,7 +92,7 @@ export default function Dashboard() {
   const canLoadPayments = hasAccess([...ROLES_PAYMENTS_API]);
   const { toast } = useToast();
 
-  const { data: dashRes, isLoading: loading, error: queryError } = useDashboardStats();
+  const { data: dashRes, isPending: loading, error: queryError } = useDashboardStats();
 
   const stats = (dashRes as DashboardStats) || null;
   const apiError = queryError as any;
@@ -238,7 +238,7 @@ export default function Dashboard() {
       stripLabel="Indicateurs et graphiques"
     >
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {loading && (
+      {loading && !stats && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Chargement des statistiques...
