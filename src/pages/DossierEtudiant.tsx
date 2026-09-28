@@ -237,7 +237,7 @@ export default function DossierEtudiant() {
               <GraduationCap className="h-5 w-5 text-emerald-500" />
               Informations Étudiant
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2">
+            <div className="grid grid-cols-1 gap-3 py-2 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
               <div className="space-y-1">
                 <p className="text-[10px] uppercase font-bold text-slate-400">Nom Complet</p>
                 <p className="font-semibold text-slate-900">{client.prenom} {client.nom}</p>

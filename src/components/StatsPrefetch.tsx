@@ -4,9 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { accountingApi, dashboardApi } from '@/services/api';
 
 /** Précharge les stats dès qu’un utilisateur est connecté, avant l’ouverture du tableau de bord. */
+const ACCOUNTING_ROLES = ['directrice', 'responsable_admin', 'comptable', 'informaticien'] as const;
+
 export function StatsPrefetch() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasAccess } = useAuth();
   const queryClient = useQueryClient();
+  const canLoadAccounting = hasAccess([...ACCOUNTING_ROLES]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -19,6 +22,8 @@ export function StatsPrefetch() {
       },
       staleTime: 5 * 60 * 1000,
     });
+
+    if (!canLoadAccounting) return;
 
     void queryClient.prefetchQuery({
       queryKey: ['accounting_summary'],
@@ -37,7 +42,7 @@ export function StatsPrefetch() {
       },
       staleTime: 60_000,
     });
-  }, [isAuthenticated, queryClient]);
+  }, [isAuthenticated, canLoadAccounting, queryClient]);
 
   return null;
 }

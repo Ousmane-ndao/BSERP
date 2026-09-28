@@ -50,6 +50,7 @@ import {
   expensesApi,
   invoicesApi,
   paymentsApi,
+  extractApiErrorMessage,
 } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { DashboardMetricCard, type DashboardMetricSpec } from '@/components/dashboard/DashboardMetricCard';
@@ -57,7 +58,6 @@ import { DashboardSoldeRestant } from '@/components/dashboard/DashboardSoldeRest
 import { DASH_GREEN, DASH_CORAL, DASH_METRIC_STYLES, DASH_PURPLE, DASH_BLUE, DASH_ORANGE, DASH_AMBER } from '@/lib/dashboardTheme';
 import { APP_CURRENCY_CODE, APP_CURRENCY_LABEL, formatMoneyWithLabel } from '@/lib/currency';
 import { useToast } from '@/hooks/use-toast';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   useAccountingSummary,
   usePayments,
@@ -67,6 +67,7 @@ import {
   useDestinations,
 } from '@/hooks/useQueries';
 import { Checkbox } from '@/components/ui/checkbox';
+import { InvoiceSendDialog, type InvoiceSendTarget } from '@/components/invoices/InvoiceSendDialog';
 
 interface PaymentItem {
   id: string;
@@ -94,6 +95,7 @@ interface ExpenseItem {
 interface InvoiceItem {
   id: string;
   clientId: string;
+  clientName?: string;
   numero: string;
   dateEmission: string;
   dateEcheance: string | null;
@@ -165,10 +167,10 @@ export default function Comptabilite() {
   const [pageInvoices, setPageInvoices] = useState(1);
 
   // Queries
-  const { data: summaryRes, isPending: summaryLoading } = useAccountingSummary();
-  const { data: paymentsRes, isLoading: paymentsLoading } = usePayments({ per_page: '20', page: String(pagePayments) });
-  const { data: expensesRes, isLoading: expensesLoading } = useExpenses({ per_page: '20', page: String(pageExpenses) });
-  const { data: invoicesRes, isLoading: invoicesLoading } = useInvoices({ per_page: '20', page: String(pageInvoices) });
+  const { data: summaryRes, isPending: summaryLoading, isError: summaryFailed, error: summaryErr } = useAccountingSummary();
+  const { data: paymentsRes, isLoading: paymentsLoading, isError: paymentsFailed, error: paymentsErr } = usePayments({ per_page: '20', page: String(pagePayments) });
+  const { data: expensesRes, isLoading: expensesLoading, isError: expensesFailed, error: expensesErr } = useExpenses({ per_page: '20', page: String(pageExpenses) });
+  const { data: invoicesRes, isLoading: invoicesLoading, isError: invoicesFailed, error: invoicesErr } = useInvoices({ per_page: '20', page: String(pageInvoices) });
   const { data: clientsRes } = useClientsOptions();
   const { data: destinationsData } = useDestinations();
 
@@ -192,7 +194,11 @@ export default function Comptabilite() {
   const invoicesMeta = (invoicesRes?.meta ?? null) as PaginationMeta | null;
 
   const clients = (clientsRes?.data ?? []) as ClientItem[];
-  const destinations = (destinationsData ?? []) as { id: number; name: string }[];
+  const destinations = (Array.isArray(destinationsData)
+    ? destinationsData
+    : Array.isArray((destinationsData as { data?: unknown } | undefined)?.data)
+      ? (destinationsData as { data: { id: number; name: string }[] }).data
+      : []) as { id: number; name: string }[];
 
   const [paymentExportFilters, setPaymentExportFilters] = useState({
     destination_id: '',
@@ -219,6 +225,7 @@ export default function Comptabilite() {
   const [invoiceEditingId, setInvoiceEditingId] = useState<string | null>(null);
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceItem | null>(null);
   const [invoiceDeleting, setInvoiceDeleting] = useState(false);
+  const [sendInvoice, setSendInvoice] = useState<InvoiceSendTarget | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -319,10 +326,10 @@ export default function Comptabilite() {
   const pieByMethod = useMemo(() => {
     const rows = summary?.payments_by_method ?? [];
     return rows
-      .filter((r) => r.total > 0)
+      .filter((r) => Number(r.total) > 0)
       .map((r, i) => ({
-        name: r.method,
-        value: r.total,
+        name: String(r.method || 'Autre'),
+        value: Number(r.total),
         color: PIE_COLORS[i % PIE_COLORS.length],
       }));
   }, [summary?.payments_by_method]);
@@ -382,8 +389,11 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
-    } catch {
-      setError(dialogMode === 'create' ? "Impossible d'enregistrer le paiement." : 'Impossible de mettre à jour le paiement.');
+    } catch (err) {
+      setError(await extractApiErrorMessage(
+        err,
+        dialogMode === 'create' ? "Impossible d'enregistrer le paiement." : 'Impossible de mettre à jour le paiement.',
+      ));
     } finally {
       setSaving(false);
     }
@@ -502,34 +512,19 @@ export default function Comptabilite() {
   };
 
   const sendInvoiceToChannels = async (invoiceId: string, channels: InvoiceDeliveryChannel[]) => {
-    if (channels.length === 0) return;
-    const tasks = channels.map(async (channel) => {
-      if (channel === 'email') {
-        await invoicesApi.sendEmail(invoiceId);
-        return 'email';
-      }
-      const res = await invoicesApi.getShareLinks(invoiceId);
-      const url = (res.data?.data?.whatsappUrl ?? '') as string;
-      if (!url) {
-        throw new Error('WHATSAPP_UNAVAILABLE');
-      }
-      window.open(url, '_blank', 'noopener,noreferrer');
-      return 'whatsapp';
-    });
-
-    const results = await Promise.allSettled(tasks);
-    const success = results.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<string>).value);
-    const failed = results.filter((r) => r.status === 'rejected');
-
-    if (success.length > 0) {
+    const hasEmail = channels.includes('email');
+    const hasWhatsapp = channels.includes('whatsapp');
+    const mode = hasEmail && hasWhatsapp ? 'both' : hasEmail ? 'email' : hasWhatsapp ? 'whatsapp' : null;
+    if (!mode) return;
+    const res = await invoicesApi.deliver(invoiceId, mode);
+    const rows = (res.data?.data?.results ?? []) as Array<{ ok?: boolean; label?: string }>;
+    rows.forEach((row) => {
       toast({
-        title: 'Envoi préparé',
-        description: `Canal${success.length > 1 ? 'x' : ''} prêt${success.length > 1 ? 's' : ''}: ${success.join(', ')}`,
+        title: row.ok ? 'Envoi réussi' : 'Échec d’envoi',
+        description: row.label ?? '',
+        variant: row.ok ? 'default' : 'destructive',
       });
-    }
-    if (failed.length > 0) {
-      setError("Une partie de l'envoi du reçu a échoué.");
-    }
+    });
   };
 
   const handleAutoDeliveryResult = (delivery: InvoiceDeliveryResult | null, opts?: { openWhatsapp?: boolean }) => {
@@ -646,14 +641,6 @@ export default function Comptabilite() {
       window.URL.revokeObjectURL(url);
     } catch {
       setError('Impossible de télécharger le PDF.');
-    }
-  };
-
-  const handleSendInvoice = async (id: string, channels: InvoiceDeliveryChannel[]) => {
-    try {
-      await sendInvoiceToChannels(id, channels);
-    } catch {
-      setError("Impossible d'envoyer le recu.");
     }
   };
 
@@ -792,6 +779,18 @@ export default function Comptabilite() {
       headerActions={headerActions}
     >
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {(summaryFailed || paymentsFailed || expensesFailed || invoicesFailed) && (
+        <p className="text-sm text-destructive">
+          Impossible de charger le tableau de bord comptable
+          {(() => {
+            const err = summaryErr || paymentsErr || expensesErr || invoicesErr;
+            const status = (err as { response?: { status?: number; data?: { message?: string } } })?.response?.status;
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            if (status === 403) return ' : accès refusé pour ce compte. Vérifiez le rôle Comptable.';
+            return status || msg ? ` : ${msg || `erreur ${status}`}` : '.';
+          })()}
+        </p>
+      )}
 
       <AlertDialog open={!!deletePayment} onOpenChange={(open) => !open && setDeletePayment(null)}>
         <AlertDialogContent>
@@ -923,7 +922,7 @@ export default function Comptabilite() {
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4 outline-none">
-          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <div className="table-scroll rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
@@ -1002,7 +1001,7 @@ export default function Comptabilite() {
         </TabsContent>
 
         <TabsContent value="expenses" className="space-y-4 outline-none">
-          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <div className="table-scroll rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
@@ -1075,7 +1074,7 @@ export default function Comptabilite() {
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-4 outline-none">
-          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <div className="table-scroll rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
@@ -1121,21 +1120,26 @@ export default function Comptabilite() {
                         <Button variant="ghost" size="sm" onClick={() => handleDownloadInvoicePdf(inv.id, inv.numero)}>
                           <FileDown size={14} />
                         </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Send size={14} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleSendInvoice(inv.id, ['email'])}>
-                              <Mail size={14} className="mr-2" /> E-mail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSendInvoice(inv.id, ['whatsapp'])}>
-                              <MessageCircle size={14} className="mr-2" /> WhatsApp
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {inv.statut !== 'annulee' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() =>
+                              setSendInvoice({
+                                id: inv.id,
+                                numero: inv.numero,
+                                clientId: inv.clientId,
+                                clientName: inv.clientName ?? clientNames.get(inv.clientId),
+                                clientEmail: inv.clientEmail,
+                                clientPhone: inv.clientPhone,
+                              })
+                            }
+                          >
+                            <Send size={14} className="mr-1" />
+                            Envoyer la facture
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => openEditInvoice(inv)}>
                           <Pencil size={14} />
                         </Button>
@@ -1198,7 +1202,7 @@ export default function Comptabilite() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Montant ({APP_CURRENCY_LABEL})</Label>
                 <Input
@@ -1271,7 +1275,7 @@ export default function Comptabilite() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Montant ({APP_CURRENCY_LABEL})</Label>
                 <Input
@@ -1310,7 +1314,7 @@ export default function Comptabilite() {
             <DialogTitle>{invoiceDialogMode === 'create' ? 'Nouvelle facture' : 'Modifier facture'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmitInvoice} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Client</Label>
                 <select
@@ -1335,7 +1339,7 @@ export default function Comptabilite() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Date émission</Label>
                 <Input
@@ -1385,7 +1389,7 @@ export default function Comptabilite() {
                 <Label htmlFor="auto_send" className="cursor-pointer font-semibold">Envoyer automatiquement au client</Label>
               </div>
               {invoiceForm.auto_send && (
-                <div className="ml-6 flex flex-wrap gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="send_email"
@@ -1412,6 +1416,15 @@ export default function Comptabilite() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <InvoiceSendDialog
+        invoice={sendInvoice}
+        open={sendInvoice !== null}
+        onOpenChange={(open) => {
+          if (!open) setSendInvoice(null);
+        }}
+        onError={setError}
+      />
     </DashboardPageShell>
   );
 }

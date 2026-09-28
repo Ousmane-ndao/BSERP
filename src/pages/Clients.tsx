@@ -11,6 +11,7 @@ import { DASH_GREEN } from '@/lib/dashboardTheme';
 import { useToast } from '@/hooks/use-toast';
 import { useClients, useDestinations } from '@/hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
+import { RowActions } from '@/components/layout/RowActions';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Client {
@@ -78,10 +79,10 @@ export default function Clients() {
 
   const listParams = useMemo(
     () => ({
-      per_page: '20',
-      page: String(page),
+    per_page: '20',
+    page: String(page),
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
-      ...(filterDestination ? { destination_id: filterDestination } : {}),
+    ...(filterDestination ? { destination_id: filterDestination } : {}),
     }),
     [page, debouncedSearch, filterDestination],
   );
@@ -247,14 +248,14 @@ export default function Clients() {
       subtitle={`${meta?.total ?? clients.length} clients enregistrés`}
       stripLabel="Annuaire et suivi clients"
       headerActions={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => void handleExportPdf()} disabled={exporting}>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" onClick={() => void handleExportPdf()} disabled={exporting}>
             {exporting ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Download size={16} className="mr-2" />}
             {exporting ? 'Export...' : 'Exporter PDF'}
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90" onClick={openCreate}>
+              <Button className="h-11 w-full border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90 sm:w-auto" onClick={openCreate}>
                 <Plus size={16} className="mr-2" />
                 Nouveau client
               </Button>
@@ -347,14 +348,14 @@ export default function Clients() {
         <div className="relative min-w-0 flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9 bg-card shadow-sm"
-            placeholder="Rechercher (nom, email, téléphone, niveau, destination)..."
+            className="h-11 bg-card pl-9 shadow-sm"
+            placeholder="Rechercher un client…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
-          className="h-10 w-full min-w-0 max-w-full shrink-0 rounded-md border border-input bg-card px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring sm:max-w-[240px] sm:text-ellipsis"
+          className="h-11 w-full min-w-0 max-w-full shrink-0 rounded-md border border-input bg-card px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring sm:max-w-[240px]"
           title={filterDestination || undefined}
           value={filterDestination}
           onChange={(e) => setFilterDestination(e.target.value)}
@@ -364,101 +365,148 @@ export default function Clients() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="table-container overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md">
+      {loading && clients.length === 0 && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement des clients...
+        </p>
+      )}
+      {!loading && clients.length === 0 && (
+        <p className="rounded-xl border border-dashed bg-white p-6 text-center text-sm text-muted-foreground">
+          Aucun client trouvé
+        </p>
+      )}
+
+      <div className="space-y-3 md:hidden">
+        {clients.map((c) => (
+          <article key={c.id} className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-slate-900">
+                  {c.prenom} {c.nom}
+                </p>
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">{c.destination || '—'}</p>
+              </div>
+              {c.statut === 'Actif' ? (
+                <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium text-white" style={{ backgroundColor: DASH_GREEN }}>
+                  {c.statut}
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  {c.statut}
+                </span>
+              )}
+            </div>
+            <dl className="mt-3 grid grid-cols-1 gap-1 text-sm text-slate-600">
+              {c.telephone ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Téléphone</dt>
+                  <dd className="truncate font-medium">{c.telephone}</dd>
+                </div>
+              ) : null}
+              {c.niveauEtude ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Niveau</dt>
+                  <dd className="truncate font-medium">{c.niveauEtude}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+              <RowActions
+                items={[
+                  {
+                    label: 'Dossier étudiant',
+                    icon: GraduationCap,
+                    onClick: () => navigate(`/clients/${c.id}/dossier-etudiant`),
+                  },
+                  {
+                    label: 'Paiements',
+                    icon: Wallet,
+                    onClick: () => navigate(`/clients/${c.id}/payments`),
+                    hidden: !canViewPayments,
+                  },
+                  { label: 'Dossiers', icon: Eye, onClick: () => navigate(`/dossiers?client=${c.id}`) },
+                  { label: 'Modifier', icon: Edit, onClick: () => openEdit(c) },
+                  { label: 'Supprimer', icon: Trash2, onClick: () => void handleDelete(c.id), destructive: true },
+                ]}
+              />
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="table-container hidden overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md md:block">
         <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-800">Liste des clients</h2>
         </div>
-        <div className="max-h-[min(70vh,520px)] overflow-auto">
+        <div className="table-scroll max-h-[min(70vh,520px)]">
         <table className="w-full max-w-full text-sm">
           <thead className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
             <tr className="border-b bg-muted/50">
               <th className="p-3 text-left font-medium text-muted-foreground">Prénom & Nom</th>
-              <th className="hidden p-3 text-left font-medium text-muted-foreground sm:table-cell">Téléphone</th>
-              <th className="hidden p-3 text-left font-medium text-muted-foreground md:table-cell">Niveau</th>
-              <th className="hidden p-3 text-left font-medium text-muted-foreground lg:table-cell">Destination</th>
+              <th className="p-3 text-left font-medium text-muted-foreground">Téléphone</th>
+              <th className="hidden p-3 text-left font-medium text-muted-foreground lg:table-cell">Niveau</th>
+              <th className="hidden p-3 text-left font-medium text-muted-foreground xl:table-cell">Destination</th>
               <th className="whitespace-nowrap p-3 text-left font-medium text-muted-foreground">Statut</th>
-              <th className="w-24 whitespace-nowrap p-3 text-right font-medium text-muted-foreground">Actions</th>
+              <th className="w-28 whitespace-nowrap p-3 text-right font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {!loading && clients.length === 0 && (
-              <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">Aucun client trouvé</td></tr>
-            )}
-            {loading && (
-              <tr>
-                <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Chargement des clients...
-                  </span>
-                </td>
-              </tr>
-            )}
             {clients.map((c) => (
               <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                 <td className="p-3 font-medium">
-                  <span
-                    className="block max-w-[11rem] truncate sm:max-w-[13rem] lg:max-w-[15rem]"
-                    title={`${c.prenom} ${c.nom}`.trim()}
-                  >
+                  <span className="block max-w-[14rem] truncate" title={`${c.prenom} ${c.nom}`.trim()}>
                     {c.prenom} {c.nom}
                   </span>
                 </td>
-                <td className="hidden p-3 text-muted-foreground sm:table-cell">
-                  <span className="block max-w-[8rem] truncate md:max-w-[9rem]" title={c.telephone || undefined}>
+                <td className="p-3 text-muted-foreground">
+                  <span className="block max-w-[9rem] truncate" title={c.telephone || undefined}>
                     {c.telephone}
                   </span>
                 </td>
-                <td className="hidden p-3 text-muted-foreground md:table-cell">
-                  <span className="block max-w-[9rem] truncate lg:max-w-[10rem]" title={c.niveauEtude || undefined}>
+                <td className="hidden p-3 text-muted-foreground lg:table-cell">
+                  <span className="block max-w-[10rem] truncate" title={c.niveauEtude || undefined}>
                     {c.niveauEtude}
                   </span>
                 </td>
-                <td className="hidden p-3 text-muted-foreground lg:table-cell">
-                  <span
-                    className="block max-w-[9rem] truncate xl:max-w-[12rem]"
-                    title={c.destination || undefined}
-                  >
+                <td className="hidden p-3 text-muted-foreground xl:table-cell">
+                  <span className="block max-w-[12rem] truncate" title={c.destination || undefined}>
                     {c.destination}
                   </span>
                 </td>
                 <td className="p-3">
                   {c.statut === 'Actif' ? (
                     <span
-                      className="text-xs px-2.5 py-1 rounded-full font-medium text-white"
+                      className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
                       style={{ backgroundColor: DASH_GREEN }}
                     >
                       {c.statut}
                     </span>
                   ) : (
-                    <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-muted text-muted-foreground">
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                       {c.statut}
                     </span>
                   )}
                 </td>
                 <td className="p-3 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button
-                      onClick={() => navigate(`/clients/${c.id}/dossier-etudiant`)}
-                      className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                      title="Dossier étudiant (comptes & suivi)"
-                    >
-                      <GraduationCap size={15} />
-                    </button>
-                    {canViewPayments && (
-                      <button
-                        onClick={() => navigate(`/clients/${c.id}/payments`)}
-                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="Paiements / acomptes"
-                      >
-                        <Wallet size={15} />
-                      </button>
-                    )}
-                    <button onClick={() => navigate(`/dossiers?client=${c.id}`)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Dossiers"><Eye size={15} /></button>
-                    <button onClick={() => openEdit(c)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Modifier"><Edit size={15} /></button>
-                    <button onClick={() => void handleDelete(c.id)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 size={15} /></button>
-                  </div>
+                  <RowActions
+                    items={[
+                      {
+                        label: 'Dossier étudiant',
+                        icon: GraduationCap,
+                        onClick: () => navigate(`/clients/${c.id}/dossier-etudiant`),
+                      },
+                      {
+                        label: 'Paiements',
+                        icon: Wallet,
+                        onClick: () => navigate(`/clients/${c.id}/payments`),
+                        hidden: !canViewPayments,
+                      },
+                      { label: 'Dossiers', icon: Eye, onClick: () => navigate(`/dossiers?client=${c.id}`) },
+                      { label: 'Modifier', icon: Edit, onClick: () => openEdit(c) },
+                      { label: 'Supprimer', icon: Trash2, onClick: () => void handleDelete(c.id), destructive: true },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

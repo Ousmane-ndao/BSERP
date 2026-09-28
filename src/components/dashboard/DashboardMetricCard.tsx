@@ -29,7 +29,7 @@ export function DashboardMetricCard({ label, value, icon: Icon, headerBg, bodyBg
         <span className="truncate">{label}</span>
       </div>
       <div className="dashboard-metric-body" style={{ backgroundColor: bodyBg }}>
-        <p className="text-lg font-bold tracking-tight text-slate-900">{value}</p>
+        <p className="break-words text-base font-bold tracking-tight text-slate-900 sm:text-lg">{value}</p>
       </div>
     </div>
   );

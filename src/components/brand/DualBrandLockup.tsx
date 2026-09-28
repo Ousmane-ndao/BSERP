@@ -9,15 +9,15 @@ export function DualBrandLockup({
   className = '',
   size = 'md',
 }: DualBrandLockupProps) {
-  const isLight = variant === 'light';
   const heights = size === 'sm' ? 'h-8' : 'h-10';
+  const src = variant === 'light' ? '/bs-consulting-logo-on-dark.png?v=1' : '/bs-consulting-logo.png?v=2';
 
   return (
     <img
-      src={isLight ? '/bs-consulting-logo-light.png' : '/bs-consulting-logo.png'}
+      src={src}
       alt="BS-Consulting"
-      aria-label="bserviceconsulting"
-      className={`${heights} w-auto max-w-[148px] object-contain object-left ${className}`}
+      aria-label="BS Consulting"
+      className={`${heights} w-auto max-w-[200px] bg-transparent object-contain object-left ${className}`}
       decoding="async"
     />
   );

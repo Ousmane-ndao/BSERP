@@ -454,7 +454,7 @@ export default function Dossiers() {
           <Button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 border-0 bg-white text-slate-900 shadow-sm hover:bg-white/90 sm:w-auto"
           >
             <FolderOpen size={16} />
             Nouveau dossier
@@ -464,8 +464,8 @@ export default function Dossiers() {
     >
       {dossiersError && <p className="text-sm text-destructive">Impossible de charger les dossiers.</p>}
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">
           <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dossiers totaux</p>
             <p className="mt-3 text-3xl font-semibold text-foreground">{total.toLocaleString()}</p>
@@ -498,22 +498,22 @@ export default function Dossiers() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr] xl:items-end">
-        <div className="relative min-w-[min(100%,20rem)] flex-1">
+      <div className="grid gap-4">
+        <div className="relative min-w-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="bg-card pl-9 shadow-sm"
-            placeholder="Client, e-mail, téléphone… Réf. exacte : D-2026-001 ou REF-…"
+            className="h-11 bg-card pl-9 shadow-sm"
+            placeholder="Client, e-mail, téléphone… Réf. exacte : D-2026-001"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             aria-label="Recherche rapide"
           />
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Statut</label>
             <select
-              className="h-10 min-w-[10rem] rounded-md border border-input bg-card px-3 text-sm shadow-sm"
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm"
               value={filterStatut}
               onChange={(e) => {
                 setFilterStatut(e.target.value);
@@ -531,7 +531,7 @@ export default function Dossiers() {
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Destination</label>
             <select
-              className="h-10 min-w-[11rem] rounded-md border border-input bg-card px-3 text-sm shadow-sm"
+              className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm"
               value={filterDestinationGroup}
               onChange={(e) => {
                 setFilterDestinationGroup(e.target.value);
@@ -549,7 +549,7 @@ export default function Dossiers() {
             <label className="text-xs font-medium text-muted-foreground">Ouverture du</label>
             <Input
               type="date"
-              className="h-10 w-40 bg-card"
+              className="h-11 w-full bg-card"
               value={filterDateFrom}
               onChange={(e) => {
                 setFilterDateFrom(e.target.value);
@@ -561,7 +561,7 @@ export default function Dossiers() {
             <label className="text-xs font-medium text-muted-foreground">Au</label>
             <Input
               type="date"
-              className="h-10 w-40 bg-card"
+              className="h-11 w-full bg-card"
               value={filterDateTo}
               onChange={(e) => {
                 setFilterDateTo(e.target.value);
@@ -688,7 +688,47 @@ export default function Dossiers() {
             : `Affichage ${from}–${to} sur ${total} dossier${total > 1 ? 's' : ''}`}
       </p>
 
-      <div className={`overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm ${isPlaceholderData && isFetching ? 'opacity-70' : ''}`}>
+      <div className={`space-y-3 md:hidden ${isPlaceholderData && isFetching ? 'opacity-70' : ''}`}>
+        {dossiers.map((d) => (
+          <article key={d.id} className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold tabular-nums text-foreground">{d.reference}</p>
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">{d.client || '—'}</p>
+              </div>
+              <Badge variant="outline" className={statusBadgeClass[d.statut] ?? statusBadgeClass['En cours']}>
+                {d.statut}
+              </Badge>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground">Destination</dt>
+                <dd className="truncate font-medium">{d.destination ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Date</dt>
+                <dd className="font-medium tabular-nums">{d.date}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Type</dt>
+                <dd className="truncate font-medium">{d.type || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Documents</dt>
+                <dd className="font-medium tabular-nums">{d.documentCount}</dd>
+              </div>
+            </dl>
+            <div className="mt-3">
+              <Button type="button" className="h-11 w-full" variant="outline" onClick={() => void openDetail(d)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Voir le dossier
+              </Button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className={`table-scroll hidden rounded-xl border border-border/80 bg-card shadow-sm md:block ${isPlaceholderData && isFetching ? 'opacity-70' : ''}`}>
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">

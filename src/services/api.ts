@@ -90,10 +90,17 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = error.config?.url;
     if (status === 401) {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
-      localStorage.removeItem('bserp_user');
-      window.location.href = LOGIN_ROUTE;
+      const requestUrl = String(url ?? '');
+      const isLoginAttempt = requestUrl.includes('/login') || requestUrl.includes('/register');
+
+      if (!isLoginAttempt) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+        localStorage.removeItem('bserp_user');
+        if (window.location.pathname !== LOGIN_ROUTE) {
+          window.location.href = LOGIN_ROUTE;
+        }
+      }
       return Promise.reject(error);
     }
 
@@ -315,6 +322,9 @@ export const invoicesApi = {
   downloadPdf: (id: string) => api.get(`/invoices/${id}/pdf`, { responseType: 'blob' }),
   getShareLinks: (id: string) => api.get(`/invoices/${id}/share-links`),
   sendEmail: (id: string) => api.post(`/invoices/${id}/send-email`),
+  deliveryPreview: (id: string) => api.get(`/invoices/${id}/delivery`),
+  deliver: (id: string, mode: 'email' | 'whatsapp' | 'both') =>
+    api.post(`/invoices/${id}/delivery`, { mode }),
 };
 
 function filenameFromDisposition(dispo: string | undefined, fallback: string): string {
@@ -383,6 +393,13 @@ export async function extractApiErrorMessage(err: unknown, fallback: string): Pr
         if (e instanceof Error) {
           return e.message;
         }
+      }
+    }
+    if (data && typeof data === 'object' && data !== null && 'errors' in data) {
+      const bag = (data as { errors?: Record<string, string[] | string> }).errors;
+      if (bag && typeof bag === 'object') {
+        const first = Object.values(bag).flatMap((v) => (Array.isArray(v) ? v : [v]))[0];
+        if (first) return String(first);
       }
     }
     if (data && typeof data === 'object' && data !== null && 'message' in data) {

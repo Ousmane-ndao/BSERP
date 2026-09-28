@@ -338,7 +338,7 @@ export default function ClientPayments() {
             <div className="space-y-1">
               <Label>Dossier</Label>
               <select
-                className="h-10 min-w-[220px] rounded-md border border-input bg-background px-3 text-sm"
+                className="h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:max-w-sm"
                 value={selectedDossierId}
                 onChange={(e) => setSelectedDossierId(e.target.value)}
               >
@@ -438,7 +438,7 @@ export default function ClientPayments() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Montant ({APP_CURRENCY_LABEL})</Label>
                 <Input

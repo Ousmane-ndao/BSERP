@@ -260,11 +260,12 @@ export default function Documents() {
     >
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="flex flex-col gap-4">
+        <div className="inline-flex w-full rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
           <Button
             type="button"
             size="sm"
+            className="h-10 flex-1 sm:flex-none"
             variant={viewMode === 'clients' ? 'default' : 'ghost'}
             onClick={() => setViewMode('clients')}
           >
@@ -274,6 +275,7 @@ export default function Documents() {
           <Button
             type="button"
             size="sm"
+            className="h-10 flex-1 sm:flex-none"
             variant={viewMode === 'global' ? 'default' : 'ghost'}
             onClick={() => setViewMode('global')}
           >
@@ -282,9 +284,9 @@ export default function Documents() {
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 lg:grid-cols-4">
           <select
-            className="h-10 rounded-md border border-input bg-card px-3 text-sm shadow-sm"
+            className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm"
             value={filterDestination}
             onChange={(e) => setFilterDestination(e.target.value)}
           >
@@ -330,10 +332,10 @@ export default function Documents() {
 
       {viewMode === 'clients' ? (
         <>
-          <div className="relative max-w-md">
+          <div className="relative w-full max-w-md">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="bg-card pl-9 shadow-sm"
+              className="h-11 w-full bg-card pl-9 shadow-sm"
               placeholder="Rechercher un client..."
               value={clientSearch}
               onChange={(e) => setClientSearch(e.target.value)}
@@ -363,17 +365,17 @@ export default function Documents() {
         </>
       ) : (
         <>
-          <div className="relative max-w-md">
+          <div className="relative w-full max-w-md">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="bg-card pl-9 shadow-sm"
+              className="h-11 w-full bg-card pl-9 shadow-sm"
               placeholder="Rechercher par nom, client ou catégorie..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+          <div className="table-scroll overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
             <div className="max-h-[min(70vh,560px)] overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">

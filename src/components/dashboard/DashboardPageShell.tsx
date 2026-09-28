@@ -21,19 +21,19 @@ export function DashboardPageShell({
   compact = false,
 }: DashboardPageShellProps) {
   return (
-    <div className="dashboard-shell overflow-hidden">
+    <div className="dashboard-shell">
       <header
-        className={`dashboard-hero flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 ${compact ? 'dashboard-hero--compact' : ''}`}
+        className={`dashboard-hero flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${compact ? 'dashboard-hero--compact' : ''}`}
       >
-        <div>
+        <div className="min-w-0">
           <h1
-            className={`font-bold tracking-tight text-white ${compact ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl'}`}
+            className={`font-bold tracking-tight text-white ${compact ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'}`}
           >
             {title}
           </h1>
-          <p className={`mt-0.5 text-white/75 ${compact ? 'text-xs' : 'text-sm'}`}>{subtitle}</p>
+          <p className={`mt-0.5 text-white/75 ${compact ? 'text-xs' : 'text-xs sm:text-sm'}`}>{subtitle}</p>
         </div>
-        {headerActions ? <div className="shrink-0">{headerActions}</div> : null}
+        {headerActions ? <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto sm:shrink-0">{headerActions}</div> : null}
       </header>
 
       <div className={`dashboard-strip ${compact ? 'dashboard-strip--compact' : ''}`}>
@@ -41,7 +41,7 @@ export function DashboardPageShell({
         <span>{stripLabel}</span>
       </div>
 
-      <div className={compact ? 'space-y-4 p-3 sm:p-4' : 'space-y-6 p-4 sm:p-6'}>{children}</div>
+      <div className={compact ? 'space-y-4 p-3 sm:p-4' : 'space-y-5 p-3 sm:space-y-6 sm:p-6'}>{children}</div>
     </div>
   );
 }

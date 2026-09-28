@@ -245,7 +245,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid auto-rows-max gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid auto-rows-max grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {metrics.map((m) => (
           <DashboardMetricCard key={m.label} {...m} loading={loading} />
         ))}
@@ -274,7 +274,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="dashboard-chart-card">
+        <div className="dashboard-chart-card min-w-0 overflow-hidden">
           <h2 className="mb-4 text-sm font-semibold text-slate-800">Répartition par statut</h2>
           <ul className="space-y-3 text-sm">
             {Object.entries(stats?.dossiers_par_statut ?? {}).map(([key, n]) => (
@@ -298,7 +298,7 @@ export default function Dashboard() {
           </ul>
         </div>
 
-        <div className="dashboard-chart-card">
+        <div className="dashboard-chart-card min-w-0 overflow-hidden">
           <h2 className="mb-4 text-sm font-semibold text-slate-800">Synthèse dossiers</h2>
           <ul className="space-y-3 text-sm">
             <li className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
@@ -344,7 +344,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="dashboard-chart-card">
+        <div className="dashboard-chart-card min-w-0 overflow-hidden">
           <h2 className="mb-2 text-sm font-semibold text-slate-800">Dossiers par statut</h2>
           <p className="mb-4 text-xs text-slate-500">Répartition des dossiers selon leur état</p>
           {pieByStatus.length === 0 ? (
@@ -373,7 +373,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="dashboard-chart-card">
+        <div className="dashboard-chart-card min-w-0 overflow-hidden">
           <h2 className="mb-2 text-sm font-semibold text-slate-800">
             {canLoadPayments ? 'Dossiers et revenus par mois' : 'Dossiers ouverts par mois'}
           </h2>

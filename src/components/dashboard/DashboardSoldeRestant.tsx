@@ -73,7 +73,7 @@ export function DashboardSoldeRestant() {
         <label className="space-y-1 text-xs font-medium text-slate-600">
           Période
           <select
-            className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+            className="h-11 w-full rounded-md border border-input bg-white px-3 text-sm"
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
           >
@@ -86,7 +86,7 @@ export function DashboardSoldeRestant() {
         <label className="space-y-1 text-xs font-medium text-slate-600">
           Client
           <select
-            className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+            className="h-11 w-full rounded-md border border-input bg-white px-3 text-sm"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
           >
@@ -101,7 +101,7 @@ export function DashboardSoldeRestant() {
         <label className="space-y-1 text-xs font-medium text-slate-600">
           Statut
           <select
-            className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+            className="h-11 w-full rounded-md border border-input bg-white px-3 text-sm"
             value={statut}
             onChange={(e) => setStatut(e.target.value)}
           >
@@ -114,7 +114,7 @@ export function DashboardSoldeRestant() {
       </div>
 
       {rows.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
+      <div className="mt-4 table-scroll">
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead>
               <tr className="border-b text-xs uppercase tracking-wide text-slate-500">

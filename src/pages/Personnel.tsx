@@ -213,7 +213,7 @@ export default function Personnel() {
       headerActions={
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="border-0 bg-white px-3 text-xs text-slate-900 shadow-sm hover:bg-white/90">
+            <Button size="sm" className="w-full border-0 bg-white px-3 text-xs text-slate-900 shadow-sm hover:bg-white/90 sm:w-auto">
               <Plus size={14} className="mr-1.5" />
               Ajouter employé
             </Button>
@@ -264,7 +264,7 @@ export default function Personnel() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Mot de passe</Label>
                   <Input

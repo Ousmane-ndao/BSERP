@@ -72,9 +72,14 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   html, body, #root {
     min-height: 100%;
     width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   body {
     @apply bg-background text-foreground antialiased text-[15px] sm:text-base;
@@ -86,16 +91,19 @@
     @apply bg-card rounded-xl border p-6 shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
   }
   .page-header {
-    @apply text-3xl font-bold text-foreground tracking-tight;
+    @apply text-xl font-bold tracking-tight text-foreground sm:text-2xl lg:text-3xl;
   }
   .page-subtitle {
-    @apply mt-1 text-base text-muted-foreground;
+    @apply mt-1 text-sm text-muted-foreground sm:text-base;
   }
   .table-container {
-    @apply bg-card rounded-xl border shadow-md overflow-hidden;
+    @apply overflow-hidden rounded-xl border bg-card shadow-md;
+  }
+  .table-scroll {
+    @apply max-w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch];
   }
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-all duration-150;
+    @apply flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-all duration-150;
   }
   .sidebar-link-active {
     @apply bg-sidebar-accent text-sidebar-primary;
@@ -109,20 +117,20 @@
   }
 
   .dashboard-shell {
-    @apply -mx-2 -mt-2 rounded-2xl border border-border/60 bg-[hsl(220_14%_96%)] shadow-sm sm:-mx-4 lg:-mx-6;
+    @apply w-full max-w-full overflow-x-hidden rounded-2xl border border-border/60 bg-[hsl(220_14%_96%)] shadow-sm;
   }
 
   .dashboard-hero {
-    @apply rounded-t-2xl px-6 py-5 text-white;
+    @apply rounded-t-2xl px-4 py-4 text-white sm:px-6 sm:py-5;
     background: linear-gradient(180deg, hsl(var(--dash-charcoal)) 0%, hsl(220 15% 22%) 100%);
   }
 
   .dashboard-hero--compact {
-    @apply px-4 py-3 sm:px-5;
+    @apply px-3 py-3 sm:px-5;
   }
 
   .dashboard-strip {
-    @apply flex items-center gap-2 border-b border-white/10 px-6 py-3 text-sm font-medium text-white/95;
+    @apply flex items-center gap-2 border-b border-white/10 px-4 py-2.5 text-xs font-medium text-white/95 sm:px-6 sm:py-3 sm:text-sm;
     background: hsl(var(--dash-slate-bar));
   }
 

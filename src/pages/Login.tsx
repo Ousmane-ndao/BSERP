@@ -52,7 +52,7 @@ function LoginHeroPanel() {
   ];
 
   return (
-    <aside className="relative isolate flex min-h-[300px] w-full flex-col justify-center overflow-hidden px-6 py-8 text-white lg:min-h-screen lg:w-[48%] lg:px-10 lg:py-10">
+    <aside className="relative isolate hidden min-h-screen w-[48%] flex-col justify-center overflow-hidden px-10 py-10 text-white lg:flex">
       <div
         className="absolute inset-0"
         style={{ background: 'linear-gradient(165deg, #06325f 0%, #0a4d93 48%, #082f58 100%)' }}
@@ -127,7 +127,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-white lg:flex-row">
+    <div className="flex min-h-dvh w-full max-w-[100vw] overflow-x-hidden flex-col bg-white lg:flex-row">
       <LoginHeroPanel />
 
       <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-4 py-8 lg:w-[52%] lg:px-8">
@@ -178,7 +178,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-10 rounded-xl border-slate-200 bg-white pl-10 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus-visible:border-[#005DA4]/50 focus-visible:ring-[#005DA4]/25"
+                  className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus-visible:border-[#005DA4]/50 focus-visible:ring-[#005DA4]/25"
                 />
               </div>
             </div>
@@ -212,7 +212,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-10 rounded-xl border-slate-200 bg-white pl-10 pr-12 text-sm text-slate-900 shadow-sm focus-visible:border-[#005DA4]/50 focus-visible:ring-[#005DA4]/25"
+                  className="h-11 rounded-xl border-slate-200 bg-white pl-10 pr-12 text-sm text-slate-900 shadow-sm focus-visible:border-[#005DA4]/50 focus-visible:ring-[#005DA4]/25"
                 />
                 <button
                   type="button"
@@ -256,7 +256,7 @@ export default function Login() {
             </p>
           </div>
         </div>
+        </div>
       </div>
-    </div>
   );
 }

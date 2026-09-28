@@ -133,9 +133,9 @@ export default function MonDossier() {
       stripLabel={payload.client?.destination ? `Destination : ${payload.client.destination}` : 'Documents et progression'}
     >
       <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">📂 Dossier de {clientName}</h2>
-          <span className="text-lg font-bold tabular-nums text-emerald-700">{progress} %</span>
+        <div className="mb-1 flex items-start justify-between gap-3">
+          <h2 className="min-w-0 text-base font-semibold text-slate-900">📂 Dossier de {clientName}</h2>
+          <span className="shrink-0 text-lg font-bold tabular-nums text-emerald-700">{progress} %</span>
         </div>
         <p className="mb-3 text-sm text-muted-foreground">Progression globale du dossier</p>
         <div className="h-3 overflow-hidden rounded-full bg-slate-100">
