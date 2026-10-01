@@ -62,6 +62,19 @@ export const useCommercialDashboardStats = (params?: Record<string, string>) => 
   });
 };
 
+export const useCommercialActivities = (params?: Record<string, string>) => {
+  return useQuery({
+    queryKey: ['commercial_activities', params],
+    queryFn: async () => {
+      const res = await commercialActivitiesApi.getAll(params);
+      return res.data;
+    },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+};
+
 export const useClients = (params?: Record<string, string>) => {
   return useQuery({
     queryKey: ['clients', params],

@@ -164,6 +164,9 @@ export const dashboardApi = {
 export const commercialActivitiesApi = {
   getStats: (params?: Record<string, string>) => api.get('/commercial-activities/stats', { params }),
   getAll: (params?: Record<string, string>) => api.get('/commercial-activities', { params }),
+  create: (data: Record<string, unknown>) => api.post('/commercial-activities', data),
+  update: (id: string, data: Record<string, unknown>) => api.put(`/commercial-activities/${id}`, data),
+  delete: (id: string) => api.delete(`/commercial-activities/${id}`),
 };
 
 // Clients

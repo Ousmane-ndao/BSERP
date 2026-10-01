@@ -58,6 +58,13 @@ interface InvoiceSendDialogProps {
   onError: (message: string) => void;
 }
 
+function channelLabel(channel: string): string {
+  if (channel === 'email') return 'E-mail';
+  if (channel === 'whatsapp') return 'WhatsApp';
+  if (channel === 'internal') return 'E-mail interne';
+  return channel;
+}
+
 export function InvoiceSendDialog({ invoice, open, onOpenChange, onError }: InvoiceSendDialogProps) {
   const [mode, setMode] = useState<InvoiceSendMode>('email');
   const [loading, setLoading] = useState(false);
@@ -195,7 +202,7 @@ export function InvoiceSendDialog({ invoice, open, onOpenChange, onError }: Invo
             {results && results.length > 0 && (
               <ul className="space-y-1.5 text-sm">
                 {results.map((r) => {
-                  const name = r.channel === 'email' ? 'E-mail' : 'WhatsApp';
+                  const name = channelLabel(r.channel);
                   const detail = r.ok
                     ? `${name} : ✅ Envoyé`
                     : `${name} : ❌ Échec — ${r.errorMessage || r.label.replace(/^[^—]+—\s*/, '') || 'échec'}`;
@@ -214,7 +221,7 @@ export function InvoiceSendDialog({ invoice, open, onOpenChange, onError }: Invo
                 <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                   {olderHistory.map((h) => (
                     <li key={h.id}>
-                      {h.sentAt} · {h.channel === 'email' ? 'E-mail' : 'WhatsApp'} ·{' '}
+                      {h.sentAt} · {channelLabel(h.channel)} ·{' '}
                       {h.status === 'sent' ? 'envoyé' : 'échec'}
                       {h.recipient ? ` · ${h.recipient}` : ''}
                       {h.errorMessage ? ` — ${h.errorMessage}` : ''}
