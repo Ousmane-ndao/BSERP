@@ -79,8 +79,10 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function CommercialDashboard() {
   const queryClient = useQueryClient();
-  const { data, isPending, error } = useCommercialDashboardStats();
-  const { data: activitiesRes, isPending: activitiesPending, isError: activitiesFailed } = useCommercialActivities({ per_page: '20' });
+  const [activityDate, setActivityDate] = useState(localDateValue);
+  const dailyParams = { date_from: activityDate, date_to: activityDate };
+  const { data, isPending, error } = useCommercialDashboardStats(dailyParams);
+  const { data: activitiesRes, isPending: activitiesPending, isError: activitiesFailed } = useCommercialActivities({ ...dailyParams, per_page: '100' });
   const [activityForm, setActivityForm] = useState(emptyActivityForm);
   const [activitySaving, setActivitySaving] = useState(false);
   const [activityError, setActivityError] = useState('');
@@ -124,9 +126,24 @@ export default function CommercialDashboard() {
 
   const commercialData = useMemo(
     () =>
-      (((stats.by_commercial ?? stats.byCommercial) as Array<{ name?: string; total?: number }>[]) ?? []).map((row) => ({
+      (((stats.by_commercial ?? stats.byCommercial) as Array<{
+        name?: string;
+        total?: number;
+        appels?: number;
+        visites?: number;
+        ouvertures?: number;
+        rendez_vous?: number;
+        prospects_suivis?: number;
+        clients_suivis?: number;
+      }>) ?? []).map((row) => ({
         name: row.name ?? 'Commercial',
         total: Number(row.total ?? 0),
+        appels: Number(row.appels ?? 0),
+        visites: Number(row.visites ?? 0),
+        ouvertures: Number(row.ouvertures ?? 0),
+        rendez_vous: Number(row.rendez_vous ?? 0),
+        prospects_suivis: Number(row.prospects_suivis ?? 0),
+        clients_suivis: Number(row.clients_suivis ?? 0),
       })),
     [stats],
   );
@@ -221,6 +238,23 @@ export default function CommercialDashboard() {
       stripLabel="Dashboard commercial"
     >
       {error && <p className="text-sm text-destructive">Impossible de charger le tableau de bord commercial.</p>}
+
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Rapport des activités commerciales</h2>
+          <p className="mt-1 text-sm text-slate-500">Les chiffres et la liste correspondent à la journée sélectionnée.</p>
+        </div>
+        <div className="w-full space-y-1.5 sm:w-auto">
+          <Label htmlFor="commercial-report-date">Date du rapport</Label>
+          <Input
+            id="commercial-report-date"
+            className="sm:w-48"
+            type="date"
+            value={activityDate}
+            onChange={(event) => setActivityDate(event.target.value || localDateValue())}
+          />
+        </div>
+      </div>
 
       <section className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]" aria-label="Saisie et suivi des activités commerciales">
         <form onSubmit={handleSubmitActivity} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -346,6 +380,42 @@ export default function CommercialDashboard() {
         {metrics.map((metric) => (
           <DashboardMetricCard key={metric.label} {...metric} loading={isPending} />
         ))}
+      </div>
+
+      <div className="mt-6 overflow-x-auto rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-4 text-base font-semibold text-slate-900">Totaux par commercial</h2>
+        {commercialData.length === 0 ? (
+          <p className="text-sm text-slate-500">Aucune activité pour cette journée.</p>
+        ) : (
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs text-slate-500">
+              <tr>
+                <th scope="col" className="py-2 pr-4 font-medium">Commercial</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Appels</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Visites</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Rendez-vous</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Dossiers ouverts</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Prospects suivis</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Clients suivis</th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold text-slate-700">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {commercialData.map((row) => (
+                <tr key={row.name}>
+                  <th scope="row" className="py-2.5 pr-4 font-medium text-slate-800">{row.name}</th>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.appels}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.visites}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.rendez_vous}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.ouvertures}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.prospects_suivis}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{row.clients_suivis}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{row.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
