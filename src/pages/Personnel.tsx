@@ -1,11 +1,11 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
-import { Mail, Phone, Plus, Briefcase, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Mail, Phone, Plus, Pencil, Briefcase, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { ROLE_ACCESS, ROLE_LABELS, type Role } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { employeesApi } from '@/services/api';
+import { employeesApi, extractApiErrorMessage } from '@/services/api';
 import { DashboardPageShell } from '@/components/dashboard/DashboardPageShell';
 import { formatPersonnelName } from '@/lib/personnelDisplay';
 import { LIST_PAGE_SIZE } from '@/constants/ui';
@@ -90,7 +90,7 @@ function initialsFromName(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function EmployeCard({ e }: { e: Employe }) {
+function EmployeCard({ e, onEdit }: { e: Employe; onEdit: (employee: Employe) => void }) {
   const theme = ROLE_CARD_THEME[e.role] ?? ROLE_CARD_THEME.accueil;
   const displayName = formatPersonnelName(e.nom);
   const initials = initialsFromName(displayName);
@@ -161,6 +161,18 @@ function EmployeCard({ e }: { e: Employe }) {
         </div>
 
         <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mr-auto h-7 px-2 text-xs"
+            onClick={() => onEdit(e)}
+            aria-label={`Modifier l’email ou le mot de passe de ${displayName}`}
+            title="Modifier l’email ou le mot de passe"
+          >
+            <Pencil size={13} className="mr-1" />
+            Modifier
+          </Button>
           {e.statut === 'Actif' ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
               <span className="h-1.5 w-1.5 rounded-full bg-white" />
@@ -184,6 +196,10 @@ export default function Personnel() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employe | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editForm, setEditForm] = useState({ email: '', password: '', password_confirmation: '' });
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -231,6 +247,39 @@ export default function Personnel() {
       setError("Impossible d'ajouter l'employé.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEdit = (employee: Employe) => {
+    setEditError('');
+    setEditForm({ email: employee.email, password: '', password_confirmation: '' });
+    setEditingEmployee(employee);
+  };
+
+  const handleUpdate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+    if (editForm.password && editForm.password !== editForm.password_confirmation) {
+      setEditError('Les mots de passe ne correspondent pas.');
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const payload: Record<string, unknown> = { email: editForm.email };
+      if (editForm.password) {
+        payload.password = editForm.password;
+        payload.password_confirmation = editForm.password_confirmation;
+      }
+      await employeesApi.update(editingEmployee.id, payload);
+      setEditingEmployee(null);
+      setEditForm({ email: '', password: '', password_confirmation: '' });
+      void queryClient.invalidateQueries({ queryKey: ['employees'] });
+    } catch (err) {
+      setEditError(await extractApiErrorMessage(err, 'Impossible de modifier cet employé.'));
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -322,6 +371,64 @@ export default function Personnel() {
         </Dialog>
       }
     >
+      <Dialog
+        open={editingEmployee !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingEmployee(null);
+            setEditError('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier {editingEmployee ? formatPersonnelName(editingEmployee.nom) : 'employé'}</DialogTitle>
+          </DialogHeader>
+          <form className="form-surface mt-2 space-y-4 p-4" onSubmit={handleUpdate}>
+            <div className="space-y-1.5">
+              <Label htmlFor="employee-edit-email">Adresse e-mail</Label>
+              <Input
+                id="employee-edit-email"
+                type="email"
+                autoComplete="off"
+                value={editForm.email}
+                onChange={(ev) => setEditForm((current) => ({ ...current, email: ev.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="employee-edit-password">Nouveau mot de passe</Label>
+              <Input
+                id="employee-edit-password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                value={editForm.password}
+                onChange={(ev) => setEditForm((current) => ({ ...current, password: ev.target.value }))}
+                placeholder="Laisser vide pour ne pas le modifier"
+              />
+            </div>
+            {editForm.password && (
+              <div className="space-y-1.5">
+                <Label htmlFor="employee-edit-password-confirmation">Confirmer le nouveau mot de passe</Label>
+                <Input
+                  id="employee-edit-password-confirmation"
+                  type="password"
+                  autoComplete="new-password"
+                  value={editForm.password_confirmation}
+                  onChange={(ev) => setEditForm((current) => ({ ...current, password_confirmation: ev.target.value }))}
+                  required
+                />
+              </div>
+            )}
+            {editError && <p className="text-sm text-destructive">{editError}</p>}
+            <Button type="submit" className="w-full" disabled={editSaving}>
+              {editSaving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {loading && (
@@ -334,7 +441,7 @@ export default function Personnel() {
         <div className="max-h-[min(70vh,640px)] overflow-y-auto pr-1">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {paginatedEmployes.map((emp) => (
-              <EmployeCard key={emp.id} e={emp} />
+              <EmployeCard key={emp.id} e={emp} onEdit={openEdit} />
             ))}
             {employes.length === 0 && <p className="text-muted-foreground">Aucun employé.</p>}
           </div>
