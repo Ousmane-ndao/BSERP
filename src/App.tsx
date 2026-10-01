@@ -17,8 +17,7 @@ import DocumentsClient from "@/pages/DocumentsClient";
 import MonDossier from "@/pages/MonDossier";
 import Comptabilite from "@/pages/Comptabilite";
 import ClientPayments from "@/pages/ClientPayments";
-import Personnel from "@/pages/Personnel";
-import Parametres from "@/pages/Parametres";
+import Personnel from "@/pages/Personnel";import CommercialDashboard from '@/pages/CommercialDashboard';import Parametres from "@/pages/Parametres";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -52,6 +51,7 @@ const App = () => (
               <Route path="/documents/client/:clientId" element={<DocumentsClient />} />
               <Route path="/mon-dossier" element={<MonDossier />} />
               <Route path="/clients/:clientId/payments" element={<ClientPayments />} />
+              <Route path="/commercial" element={<CommercialDashboard />} />
               <Route path="/comptabilite" element={<Comptabilite />} />
               <Route path="/personnel" element={<Personnel />} />
               <Route path="/parametres" element={<Parametres />} />

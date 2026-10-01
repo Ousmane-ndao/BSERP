@@ -161,6 +161,11 @@ export const dashboardApi = {
     api.get('/dashboard/solde-restant', { params }),
 };
 
+export const commercialActivitiesApi = {
+  getStats: (params?: Record<string, string>) => api.get('/commercial-activities/stats', { params }),
+  getAll: (params?: Record<string, string>) => api.get('/commercial-activities', { params }),
+};
+
 // Clients
 export const clientsApi = {
   getAll: (params?: Record<string, string>) => api.get('/clients', { params }),

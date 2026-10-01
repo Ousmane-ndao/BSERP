@@ -559,12 +559,14 @@ export default function Comptabilite() {
     if (!invoiceForm.client_id) return;
     setSaving(true);
     try {
+      const amountValue = Number(invoiceForm.amount);
       const payload: Record<string, unknown> = {
         client_id: Number(invoiceForm.client_id),
         date_emission: invoiceForm.date_emission || null,
         date_echeance: invoiceForm.date_echeance || null,
         statut: invoiceForm.statut,
-        amount: Number(invoiceForm.amount),
+        amount: amountValue,
+        montant_ttc: amountValue,
         notes: invoiceForm.notes || null,
         currency: APP_CURRENCY_CODE,
       };
@@ -601,9 +603,12 @@ export default function Comptabilite() {
       void queryClient.invalidateQueries({ queryKey: ['accounting_summary'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard_solde_restant'] });
-    } catch {
+    } catch (err) {
       setError(
-        invoiceDialogMode === 'create' ? "Impossible d'enregistrer la facture." : 'Impossible de mettre à jour la facture.'
+        await extractApiErrorMessage(
+          err,
+          invoiceDialogMode === 'create' ? "Impossible d'enregistrer la facture." : 'Impossible de mettre à jour la facture.',
+        ),
       );
     } finally {
       setSaving(false);

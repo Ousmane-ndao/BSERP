@@ -7,10 +7,12 @@ import {
   DollarSign,
   UserCog,
   Settings,
+  BriefcaseBusiness,
 } from 'lucide-react';
 
 export const APP_MENU_ITEMS = [
   { key: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: '/' },
+  { key: 'commercial', label: 'Commercial', icon: BriefcaseBusiness, path: '/commercial' },
   { key: 'clients', label: 'Clients', icon: Users, path: '/clients' },
   { key: 'dossiers', label: 'Dossiers', icon: FolderOpen, path: '/dossiers' },
   { key: 'documents', label: 'Documents', icon: FileText, path: '/documents' },
@@ -22,6 +24,7 @@ export const APP_MENU_ITEMS = [
 
 export function pageTitleFromPath(pathname: string): string {
   if (pathname === '/') return 'Tableau de bord';
+  if (pathname.startsWith('/commercial')) return 'Commercial';
   if (pathname.startsWith('/clients') && pathname.includes('dossier-etudiant')) return 'Dossier étudiant';
   if (pathname.startsWith('/clients') && pathname.includes('payments')) return 'Paiements';
   if (pathname.startsWith('/documents/client')) return 'Documents client';

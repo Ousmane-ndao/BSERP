@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { Mail, Phone, Plus, Briefcase, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { ROLE_LABELS, type Role } from '@/contexts/AuthContext';
+import { ROLE_ACCESS, ROLE_LABELS, type Role } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,8 +18,21 @@ interface Employe {
   email: string;
   telephone: string;
   role: Role;
+  permissions?: string[];
+  access?: string[];
   statut: 'Actif' | 'Inactif';
 }
+
+const MODULE_LABELS: Record<string, string> = {
+  dashboard: 'Tableau de bord',
+  commercial: 'Commercial',
+  clients: 'Clients',
+  dossiers: 'Dossiers',
+  documents: 'Documents',
+  comptabilite: 'Comptabilité',
+  personnel: 'Personnel',
+  mon_dossier: 'Mon dossier',
+};
 
 /** Bandeau + avatar : aligné sur la palette des cartes métriques */
 const ROLE_CARD_THEME: Record<
@@ -81,6 +94,9 @@ function EmployeCard({ e }: { e: Employe }) {
   const theme = ROLE_CARD_THEME[e.role] ?? ROLE_CARD_THEME.accueil;
   const displayName = formatPersonnelName(e.nom);
   const initials = initialsFromName(displayName);
+  const permissions = Array.isArray(e.permissions) && e.permissions.length > 0
+    ? e.permissions
+    : (ROLE_ACCESS[e.role] ?? []);
 
   return (
     <article className="group overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
@@ -127,6 +143,20 @@ function EmployeCard({ e }: { e: Employe }) {
                 {e.telephone?.trim() ? e.telephone : <span className="text-slate-400 italic">Non renseigné</span>}
               </p>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-2">
+          <p className="mb-2 text-[9px] font-medium uppercase tracking-wide text-slate-400">Accès et permissions</p>
+          <div className="flex flex-wrap gap-1.5">
+            {permissions.map((permission) => (
+              <span
+                key={`${e.id}-${permission}`}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-medium text-slate-700"
+              >
+                {MODULE_LABELS[permission] ?? permission}
+              </span>
+            ))}
           </div>
         </div>
 

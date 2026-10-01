@@ -15,6 +15,7 @@ import {
   settingsApi,
   studentAccountsApi,
   studentProgressApi,
+  commercialActivitiesApi,
 } from '@/services/api';
 
 export const useDashboardStats = () => {
@@ -42,6 +43,19 @@ export const useDashboardSoldeRestant = (params?: Record<string, string>, enable
       return res.data;
     },
     enabled,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useCommercialDashboardStats = (params?: Record<string, string>) => {
+  return useQuery({
+    queryKey: ['commercial_dashboard_stats', params],
+    queryFn: async () => {
+      const res = await commercialActivitiesApi.getStats(params);
+      return res.data?.data ?? res.data;
+    },
     staleTime: 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
